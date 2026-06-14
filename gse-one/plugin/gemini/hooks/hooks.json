@@ -1,6 +1,6 @@
 {
   "hooks": {
-    "PreToolUse": [
+    "BeforeTool": [
       {
         "matcher": "run_shell_command",
         "hooks": [
@@ -15,7 +15,7 @@
         ]
       }
     ],
-    "PostToolUse": [
+    "AfterTool": [
       {
         "matcher": "run_shell_command",
         "hooks": [

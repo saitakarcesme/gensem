@@ -35,7 +35,7 @@ OPENCODE_GLOBAL_DIR = Path.home() / ".config" / "opencode"
 # Codex CLI install targets. Skills live under .agents/skills/ (Codex scan
 # path); agents are TOML under .codex/agents/; AGENTS.md is the always-on
 # context (condensed lite edition); hooks under .codex/hooks/hooks.json need
-# `codex_hooks = true` in config.toml.
+# `[features] hooks = true` in config.toml.
 CODEX_PLUGIN_DIR = PLUGIN_DIR / "codex"
 CODEX_GLOBAL_DIR = Path.home() / ".codex"
 CODEX_SKILLS_HOME = Path.home() / ".agents" / "skills"
@@ -1455,22 +1455,47 @@ def _codex_copy_hooks(hooks_dir):
 
 
 def _codex_enable_hooks_flag(config_toml_path):
-    """Ensure `codex_hooks = true` in a Codex config.toml — guardrails are inert
-    without it. Minimal stdlib TOML edit: set/flip the top-level key, never
-    rewrites the rest of the file."""
+    """Ensure `hooks = true` under `[features]` in a Codex config.toml — guardrails
+    are inert without it. `[features] hooks = true` is the canonical key; the old
+    top-level `codex_hooks = true` is a deprecated alias (removed here if present
+    to avoid ambiguity). Minimal stdlib TOML edit, section-aware: preserves the
+    rest of the file, comments, and other sections."""
     import re
     config_toml_path = Path(config_toml_path)
     ensure_dir(config_toml_path.parent)
     text = config_toml_path.read_text(encoding="utf-8") if config_toml_path.exists() else ""
-    if re.search(r'(?m)^\s*codex_hooks\s*=', text):
-        new = re.sub(r'(?m)^\s*codex_hooks\s*=.*$', 'codex_hooks = true', text)
-        if new != text:
-            config_toml_path.write_text(new, encoding="utf-8")
-        ok(f"codex_hooks already present in {config_toml_path} (set true)")
-        return
-    sep = "" if (text == "" or text.endswith("\n")) else "\n"
-    config_toml_path.write_text(text + sep + "codex_hooks = true\n", encoding="utf-8")
-    ok(f"Enabled codex_hooks in {config_toml_path}")
+
+    # Drop the deprecated top-level alias if present.
+    text = re.sub(r'(?m)^[ \t]*codex_hooks[ \t]*=.*\n?', '', text)
+
+    lines = text.splitlines()
+    out, in_features, features_seen, hooks_set = [], False, False, False
+    for line in lines:
+        if re.match(r'^\s*\[', line):                      # a section header
+            if in_features and not hooks_set:              # leaving [features] w/o hooks
+                out.append("hooks = true")
+                hooks_set = True
+            in_features = line.strip() == "[features]"
+            features_seen = features_seen or in_features
+            out.append(line)
+            continue
+        if in_features and re.match(r'^\s*hooks\s*=', line):
+            out.append("hooks = true")                     # flip existing key
+            hooks_set = True
+            continue
+        out.append(line)
+    if in_features and not hooks_set:                      # [features] was the last section
+        out.append("hooks = true")
+        hooks_set = True
+    if not features_seen:                                  # no [features] at all → append one
+        if out and out[-1].strip() != "":
+            out.append("")
+        out += ["[features]", "hooks = true"]
+    result = "\n".join(out)
+    if not result.endswith("\n"):
+        result += "\n"
+    config_toml_path.write_text(result, encoding="utf-8")
+    ok(f"Enabled [features] hooks = true in {config_toml_path}")
 
 
 def _codex_remove_components(skills_target, agents_target, hooks_dir):
@@ -1519,7 +1544,7 @@ def install_codex_plugin(env):
 
     Skills → ~/.agents/skills/, sub-agents → ~/.codex/agents/, condensed
     orchestrator → ~/.codex/AGENTS.md, hooks → ~/.codex/hooks/hooks.json with
-    `codex_hooks = true` set in ~/.codex/config.toml. Registry → side-install
+    `[features] hooks = true` set in ~/.codex/config.toml. Registry → side-install
     ~/.gse-one.d/ (Codex's plugin cache path is not stable for shell
     resolution — same rationale as the Claude plugin side-install)."""
     step("Codex CLI — Plugin install (global)")
@@ -1564,7 +1589,7 @@ def uninstall_codex_plugin(env):
     if GSE_ONE_DATA_DIR.exists() and not any(GSE_ONE_DATA_DIR.iterdir()):
         GSE_ONE_DATA_DIR.rmdir()
     _remove_registry()
-    info("Left `codex_hooks` flag in ~/.codex/config.toml untouched (remove manually if desired)")
+    info("Left `[features] hooks` flag in ~/.codex/config.toml untouched (remove manually if desired)")
     ok(f"Removed {removed} GSE-One file(s) from Codex global locations")
     tracker.add("Codex", "uninstall", "global", str(CODEX_GLOBAL_DIR), "OK", f"{removed} files")
     return True
@@ -1579,7 +1604,7 @@ def install_codex_no_plugin(project_dir):
 
     Skills → <project>/.agents/skills/, sub-agents → <project>/.codex/agents/,
     condensed orchestrator → <project>/AGENTS.md (root), hooks →
-    <project>/.codex/hooks/hooks.json with `codex_hooks = true` in
+    <project>/.codex/hooks/hooks.json with `[features] hooks = true` in
     <project>/.codex/config.toml. Registry → <project>/.codex/."""
     step("Codex CLI — Non-plugin install (project)")
 
@@ -1624,7 +1649,7 @@ def uninstall_codex_no_plugin(project_dir):
     _strip_agents_md_block(project_dir / "AGENTS.md")
     _remove_common_assets(codex_dir)
     _remove_registry()
-    info("Left `codex_hooks` flag in .codex/config.toml untouched (remove manually if desired)")
+    info("Left `[features] hooks` flag in .codex/config.toml untouched (remove manually if desired)")
     ok(f"Removed {removed} GSE-One file(s) from {codex_dir}")
     tracker.add("Codex", "uninstall", "project", str(codex_dir), "OK", f"{removed} files")
     return True

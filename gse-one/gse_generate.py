@@ -970,7 +970,7 @@ def _cx_build_agents_md(cx: Path) -> None:
 
 def _cx_build_hooks(cx: Path) -> None:
     """codex/hooks/hooks.json reproducing the 3 guardrails from shared commands.
-    Codex requires `codex_hooks = true` in config.toml — set by the installer."""
+    Codex requires `[features] hooks = true` in config.toml (canonical; `codex_hooks` is a deprecated alias) — set by the installer."""
     cmds = _guardrail_commands()
     hooks = {
         "hooks": {
@@ -1105,15 +1105,20 @@ def _gm_build_hooks(gm: Path) -> None:
     """gemini/hooks/hooks.json — guardrails via Gemini tool-name matchers
     (run_shell_command, write_file, replace)."""
     cmds = _guardrail_commands()
+    # Gemini CLI event taxonomy is BeforeTool / AfterTool (NOT Claude's
+    # PreToolUse / PostToolUse — those are rejected with "Invalid hook event
+    # name … Skipping", silently disabling the guardrails). Input arrives as
+    # `tool_input` on stdin and blocking is via exit 2 + stderr — both already
+    # matched by _guardrail_commands(), so only the event keys differ here.
     hooks = {
         "hooks": {
-            "PreToolUse": [
+            "BeforeTool": [
                 {"matcher": "run_shell_command", "hooks": [
                     {"type": "command", "command": cmds["pre_commit"]},
                     {"type": "command", "command": cmds["pre_force"]},
                 ]},
             ],
-            "PostToolUse": [
+            "AfterTool": [
                 {"matcher": "run_shell_command", "hooks": [
                     {"type": "command", "command": cmds["post_review"]},
                 ]},
@@ -1485,6 +1490,21 @@ def verify() -> None:
         ok_e = path.exists()
         print(f"    {name}: {'OK' if ok_e else 'MISSING'}")
         if not ok_e: errors.append(f"gemini: missing {name}")
+    # Hook event names must be Gemini's BeforeTool/AfterTool — NOT Claude's
+    # PreToolUse/PostToolUse (Gemini rejects those: "Invalid hook event name …
+    # Skipping", silently disabling guardrails — regression caught in v0.82.2).
+    gm_hooks_f = gm / "hooks" / "hooks.json"
+    if gm_hooks_f.exists():
+        gm_hooks_txt = gm_hooks_f.read_text(encoding="utf-8")
+        gm_hooks_obj = json.loads(gm_hooks_txt).get("hooks", {})
+        for bad in ("PreToolUse", "PostToolUse"):
+            if bad in gm_hooks_obj:
+                errors.append(f"gemini: hooks.json uses invalid event name '{bad}' (Gemini wants BeforeTool/AfterTool)")
+        for needed in ("BeforeTool", "AfterTool"):
+            if needed not in gm_hooks_obj:
+                errors.append(f"gemini: hooks.json missing event '{needed}'")
+        if "PreToolUse" not in gm_hooks_obj and "BeforeTool" in gm_hooks_obj:
+            print("    hooks event names: OK (BeforeTool/AfterTool)")
     # No raw {{ left in any command prompt (template-collision guard)
     raw_braces = [n for n in ACTIVITY_NAMES
                   if (gm / "commands" / "gse" / f"{n}.toml").exists()

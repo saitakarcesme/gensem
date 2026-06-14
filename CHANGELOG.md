@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.82.2] - 2026-06-14
+
+*Gemini guardrails were silently inert (wrong hook event names); Codex hook-enable flag modernized.*
+
+### Fixed
+- Gemini CLI hooks: event keys renamed `PreToolUse`/`PostToolUse` → `BeforeTool`/`AfterTool`. Gemini rejected the Claude-style names ("Invalid hook event name … Skipping"), silently disabling all 3 guardrails (protect-main, force-push block, open-findings warning). Input field (`tool_input`) and exit-2 blocking already matched Gemini's contract, so only the event keys changed. Added a `--verify` guard asserting valid Gemini event names.
+
+### Changed
+- Codex CLI: installer enables hooks via the canonical `[features] hooks = true` instead of the deprecated top-level `codex_hooks = true` alias (still functional but slated for removal). Section-aware TOML edit; removes the old alias. Codex event names (`PreToolUse`/`PostToolUse`), `Bash`/`Edit`/`Write` matchers, and exit-2 blocking were already correct.
+
 ## [0.82.1] - 2026-06-14
 
 *Pre-release doc accuracy: corrected stale counts in both READMEs.*
