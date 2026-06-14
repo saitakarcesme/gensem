@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.83.1] - 2026-06-14
+
+*Sandbox launcher inherits the global git identity, so an isolated `$HOME` no longer forces a git-identity prompt.*
+
+### Fixed
+- Sandbox launcher (`.gse-sandbox/run`): inherits the real global git identity (`git config --global user.name/email`) into the sandbox as `GIT_AUTHOR_*` / `GIT_COMMITTER_*`, read **before** the `$HOME` redirection. Without it, the isolated `$HOME` hid `~/.gitconfig`, so every commit triggered a HUG git-identity prompt (seen on a Gemini sandbox; Claude/non-sandbox were unaffected since they run under the real `$HOME`). Only unset vars are filled — explicit env overrides and project-local `git config` still win; no file is written into the sandbox. Added a `--verify` launcher guard.
+
 ## [0.83.0] - 2026-06-14
 
 *Bring the README back in sync with the v0.72–v0.82 install/launcher/audit work, and add an audit guard so it stops drifting.*

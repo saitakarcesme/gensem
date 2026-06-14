@@ -1215,6 +1215,21 @@ fi
 cd "$root"
 
 if [ "${mode:-}" = "sandbox" ]; then
+  # Inherit the real global git identity BEFORE redirecting HOME — otherwise the
+  # sandbox HOME hides ~/.gitconfig and git has no signature, forcing a HUG
+  # identity prompt. Only fill what is unset (respect explicit overrides); env
+  # vars override config regardless of HOME, and no file is written.
+  if command -v git >/dev/null 2>&1; then
+    if [ -z "${GIT_AUTHOR_NAME:-}" ]; then
+      _gn=$(git config --global user.name 2>/dev/null || true)
+      if [ -n "$_gn" ]; then GIT_AUTHOR_NAME="$_gn"; GIT_COMMITTER_NAME="$_gn"; export GIT_AUTHOR_NAME GIT_COMMITTER_NAME; fi
+    fi
+    if [ -z "${GIT_AUTHOR_EMAIL:-}" ]; then
+      _ge=$(git config --global user.email 2>/dev/null || true)
+      if [ -n "$_ge" ]; then GIT_AUTHOR_EMAIL="$_ge"; GIT_COMMITTER_EMAIL="$_ge"; export GIT_AUTHOR_EMAIL GIT_COMMITTER_EMAIL; fi
+    fi
+    if [ -n "${GIT_AUTHOR_NAME:-}" ]; then echo "GSE-One: inherited git identity '$GIT_AUTHOR_NAME <${GIT_AUTHOR_EMAIL:-}>' into the sandbox" >&2; fi
+  fi
   HOME="$script_dir"; export HOME
   unset XDG_CONFIG_HOME 2>/dev/null || true
   echo "GSE-One: launching '$bin' in project sandbox (HOME=$HOME)" >&2
@@ -1592,7 +1607,7 @@ def verify() -> None:
         lt = launcher.read_text(encoding="utf-8")
         missing = [m for m in ("launch.env", "GSE-One: launching", "exec \"$bin\"",
                                "HOME=\"$script_dir\"", "cd \"$root\"", "XDG_CONFIG_HOME",
-                               "--bypass", "--full-auto") if m not in lt]
+                               "--bypass", "--full-auto", "GIT_AUTHOR_NAME") if m not in lt]
         if missing:
             errors.append(f"gse-run launcher missing: {', '.join(missing)}")
             print(f"    MISSING markers: {', '.join(missing)}")
