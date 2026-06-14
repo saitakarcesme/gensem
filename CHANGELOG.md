@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.83.0] - 2026-06-14
+
+*Bring the README back in sync with the v0.72–v0.82 install/launcher/audit work, and add an audit guard so it stops drifting.*
+
+### Changed
+- README.md: documented the sandbox launcher (`sh .gse-sandbox/run`) and its platform-agnostic `--bypass` / `--auto` flags in a new "Sandbox mode (isolated run)" section.
+- README.md: rewrote the audit "Report persistence" section to the v0.75.0 single-registry contract (`_LOCAL/audit/audit.json` + `/tmp` render); removed the retired multi-file description.
+- README.md: added the audit registry CLI commands (`--emit-registry`, `--merge`, `--set-verdicts`, `--render`) and the per-platform first-command invocation (Codex `$gse-*` / `/skills`, not slash forms).
+- README.md: listed the 3 missing Category D audit jobs (header said 11, listed 8).
+- README.md: refactored the manual-install section — the per-platform Option A/B/C blocks collapse into one `AGENT`-parameterized recipe, plus a maintainer dev-loop (regenerate → sandbox reinstall → launch) showing `sh .gse-sandbox/run [--auto|--bypass]`.
+- `.claude/audit-jobs.json`: extended `distribution-channel-coherence` (README install-mode / launcher-flag / invocation-prose freshness vs install.py + launcher) and `audit-system-self-coherence` (README audit section vs audit.py contract + Category D completeness).
+
+### Fixed
+- README.md: corrected stale audit persistence prose that still described the pre-v0.75.0 `_LOCAL/audits/audit-<ts>.md` + `latest.md` slash-command output retired in v0.75.0.
+
 ## [0.82.2] - 2026-06-14
 
 *Gemini guardrails were silently inert (wrong hook event names); Codex hook-enable flag modernized.*

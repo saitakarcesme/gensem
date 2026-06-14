@@ -16,15 +16,16 @@ GSE-One is an AI engineering companion that brings structured software developme
 1. [Key Features](#key-features)
 2. [Quick install (curl | sh)](#quick-install-curl--sh)
 3. [Environment variables](#environment-variables)
-4. [Troubleshooting](#troubleshooting)
-5. [Manual install (maintainers, forks, Windows without WSL)](#manual-install-maintainers-forks-windows-without-wsl)
-6. [Mono-plugin Architecture](#mono-plugin-architecture)
-7. [Develop and Generate](#develop-and-generate)
-8. [Publish the Plugin](#publish-the-plugin)
-9. [Command Reference](#command-reference)
-10. [Deployment](#deployment)
-11. [Auditing the plugin](#auditing-the-plugin)
-12. [Versioning](#versioning)
+4. [Sandbox mode (isolated run)](#sandbox-mode-isolated-run)
+5. [Troubleshooting](#troubleshooting)
+6. [Manual install (maintainers, forks, Windows without WSL)](#manual-install-maintainers-forks-windows-without-wsl)
+7. [Mono-plugin Architecture](#mono-plugin-architecture)
+8. [Develop and Generate](#develop-and-generate)
+9. [Publish the Plugin](#publish-the-plugin)
+10. [Command Reference](#command-reference)
+11. [Deployment](#deployment)
+12. [Auditing the plugin](#auditing-the-plugin)
+13. [Versioning](#versioning)
 
 ---
 
@@ -57,7 +58,16 @@ curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.s
 curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh -s -- upgrade
 ```
 
-The script auto-detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH and installs on all of them **inside the current directory** (no-plugin mode). It creates a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder per detected platform and writes a registry marker `~/.gse-one` pointing at the chosen platform dir — nothing is installed globally by default. To install as a user-scope plugin instead, set `GSE_MODE=plugin` explicitly. Once finished, open your coding agent and type `/gse-go` (no-plugin mode) or `/gse:go` (plugin mode on Claude Code).
+The script auto-detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH and installs on all of them **inside the current directory** (no-plugin mode). It creates a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder per detected platform and writes a registry marker `~/.gse-one` pointing at the chosen platform dir — nothing is installed globally by default. To install as a user-scope plugin instead, set `GSE_MODE=plugin` explicitly.
+
+Once finished, open your coding agent and start GSE-One. The entry command differs per platform:
+
+| Platform | First command |
+|---|---|
+| Claude Code | `/gse-go` (no-plugin) or `/gse:go` (plugin mode) |
+| Cursor / opencode | `/gse-go` |
+| Gemini CLI | `/gse:go` |
+| Codex CLI | the activities are namespaced skills — type `$gse-go` (autocomplete) or pick `gse-go` from `/skills`; the `/gse-go` and `/gse:go` slash forms do **not** exist on Codex |
 
 **Requirements:** `curl`, `tar`, and `python3 ≥ 3.8` on PATH. macOS and Linux are supported out of the box; Windows users should use WSL or the [Manual install](#manual-install-maintainers-forks-windows-without-wsl) path.
 
@@ -102,6 +112,42 @@ GSE_MODE=no-plugin GSE_PROJECT_DIR=/path/to/myproject \
 
 ---
 
+## Sandbox mode (isolated run)
+
+`GSE_MODE=sandbox` (or `python3 install.py --mode sandbox`) installs GSE-One under a **project-internal `$HOME`** at `<project>/.gse-sandbox/`, so nothing touches your real home directory. Supported on **Codex CLI, Gemini CLI, and opencode** (the file-based, `$HOME`-honoring agents); Claude Code and Cursor are rejected with a pointer to `--mode local`.
+
+**Install and run are decoupled** — install once, then launch the isolated agent any day with the generated launcher:
+
+```bash
+# Install once (here: Codex into ./my-project)
+GSE_MODE=sandbox GSE_PLATFORM=codex GSE_PROJECT_DIR=./my-project \
+  curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh
+
+# Run the agent isolated — any day, no reinstall
+cd my-project
+sh .gse-sandbox/run
+```
+
+A single `rm -rf .gse-sandbox` removes the isolated `$HOME` and the launcher; it never collides with the GSE state dir `.gse/`.
+
+### Convenience flags: `--bypass` and `--auto`
+
+The launcher accepts two **platform-agnostic** flags that it strips from the args and translates to the running agent's native equivalent. All other args pass through verbatim.
+
+| Flag | Meaning | Codex | Gemini | Claude |
+|---|---|---|---|---|
+| `--bypass` | Fully unprotected (no approvals, no OS sandbox) | `--dangerously-bypass-approvals-and-sandbox` | `--yolo` | `--dangerously-skip-permissions` |
+| `--auto` | Autonomous, but keep the OS sandbox / lighter scope | `--full-auto` | `--approval-mode=auto_edit` | `--permission-mode acceptEdits` |
+
+```bash
+sh .gse-sandbox/run --auto        # autonomous, OS sandbox kept
+sh .gse-sandbox/run --bypass      # fully unprotected — use with care
+```
+
+> **opencode / Cursor:** permissions are config-driven (`.opencode/opencode.json` `permission`) or an app setting (Cursor → Settings → Agent → Auto-Run), so the launcher injects no flag and prints a note instead.
+
+---
+
 ## Troubleshooting
 
 ### `python3` not found (or version < 3.8)
@@ -140,70 +186,63 @@ GSE_VERSION=v0.62.7 \
 
 Clone the repo and run `install.py` directly when you are contributing to GSE-One, working on a fork, or running native Windows without WSL. This path exposes the full CLI surface and does not require the curl bootstrap.
 
-### Option A — Cursor
+The installer is **platform-symmetric** — the only thing that changes between the five agents is the `--platform` value. Set it once in a shell variable and the same recipe works for every agent.
+
+### One recipe, any agent (no-plugin)
 
 ```bash
+AGENT=claude        # claude | cursor | opencode | codex | gemini
+
 # Set up the workspace
 mkdir gse-quick-start && cd gse-quick-start
-mkdir my-project
 git clone https://github.com/nicolasguelfi/gensem.git
+mkdir my-project && (cd my-project && git init)
 
-# Install GSE-One (local mode — everything stays in the project)
-cd gensem
-python3 install.py --platform cursor --mode no-plugin --project-dir ../my-project
+# Install into the project (no-plugin — everything stays in my-project/)
+python3 gensem/install.py --platform "$AGENT" --mode no-plugin \
+  --project-dir "$PWD/my-project"
 
-# Initialize and launch your project
-cd ../my-project && git init
-cursor .
+# Launch the agent in the project
+cd my-project
+"$AGENT"            # Cursor users: run `cursor .`
 ```
 
-In Cursor, type: `/gse-go`
+Then start GSE-One with your agent's entry command (`/gse-go`, `/gse:go`, or Codex's `$gse-go` — see [Your first session](#your-first-session)).
 
-### Option B — Claude Code
+> **What "no-plugin" writes.** Artifacts go into the project's platform dir (`.claude/`, `.cursor/`, `.opencode/`, `.codex/`, or `.gemini/`); nothing global except `~/.gse-one` (one line with the plugin path, removed by `python3 gensem/install.py --uninstall`). For a fully committable project with **nothing** under `$HOME`, use `--mode local` instead. Commands use the `gse-` dash prefix in no-plugin mode; the colon form `/gse:go` only exists in Claude Code plugin mode.
+
+> **`git init`.** The `git init` above creates a fresh repository for YOUR project, independent of the `.git/` inside the `gensem/` clone (which tracks the plugin source). First-time git users: GSE-One configures your git identity automatically on the first commit — no prior `git config` needed.
+
+### Maintainer dev-loop (edit src → regenerate → reinstall → run)
+
+When editing the methodology source under `gse-one/src/`, regenerate the plugin before each reinstall and use **sandbox mode** — the install is fully isolated under the project and the launch step is identical for every agent:
 
 ```bash
-# Set up the workspace
-mkdir gse-quick-start && cd gse-quick-start
-mkdir my-project
-git clone https://github.com/nicolasguelfi/gensem.git
+AGENT=gemini                       # codex | gemini | opencode (sandbox is file-based only)
+GENSEM=/path/to/gensem
+PROJECT=/path/to/throwaway-test-project
 
-# Install GSE-One (local mode — everything stays in the project)
-cd gensem
-python3 install.py --platform claude --mode no-plugin --project-dir ../my-project
+# 1. Regenerate plugin/ from your src/ edits
+( cd "$GENSEM/gse-one" && python3 gse_generate.py --verify )
 
-# Initialize and launch your project
-cd ../my-project && git init
-claude
+# 2. Clean the previous isolated install (safe: holds only install artifacts)
+rm -rf "$PROJECT/.gse-sandbox"
+
+# 3. Reinstall into an isolated $HOME under the project
+python3 "$GENSEM/install.py" --platform "$AGENT" --mode sandbox --project-dir "$PROJECT"
+
+# 4. Launch — same command for every agent; pick an autonomy level:
+cd "$PROJECT"
+sh .gse-sandbox/run                # plain — per-action approvals
+# sh .gse-sandbox/run --auto       # autonomous, OS sandbox kept
+# sh .gse-sandbox/run --bypass     # fully unprotected (no approvals, no sandbox)
 ```
 
-In Claude Code, type: `/gse-go`
+`--auto` / `--bypass` are translated to each agent's native flag; any other argument passes through verbatim. See [Sandbox mode](#sandbox-mode-isolated-run) for the per-agent translation table.
 
-> **Note:** The `no-plugin` mode copies all GSE-One artifacts into your project's `.cursor/` or `.claude/` directory — nothing is installed globally. The only file created outside the project is `~/.gse-one` (1 line containing the plugin path, removed by `python3 install.py --uninstall`).
+> **⚠️ The `--auto` / `--bypass` flags go on the launcher** (`sh .gse-sandbox/run --bypass`), **never on `install.py`** — the installer rejects unknown flags and the chain aborts before the launch.
 >
-> In `no-plugin` mode, commands are exposed with the `gse-` dash prefix: `/gse-go`, `/gse-plan`, `/gse-reqs`… (on both Cursor and Claude Code). The colon form `/gse:go` only exists in **plugin mode** on Claude Code, where the plugin namespace handles separation.
-
-### Option C — opencode
-
-See [INSTALL-OPENCODE.md](INSTALL-OPENCODE.md) for the full opencode quickstart.
-
-```bash
-# Set up the workspace
-mkdir gse-quick-start && cd gse-quick-start
-mkdir my-project
-git clone https://github.com/nicolasguelfi/gensem.git
-
-# Install GSE-One into the project's .opencode/
-cd gensem
-python3 install.py --platform opencode --mode no-plugin --project-dir ../my-project
-
-# Launch opencode in the project
-cd ../my-project && git init
-opencode
-```
-
-In opencode, type: `/gse-go`.
-
-> **Note (git init):** The `git init` step above creates a fresh, independent repository for YOUR project inside `my-project/` — it is distinct from the `.git/` folder inside the `gensem/` clone, which tracks the plugin source. The two repositories do not interact. If this is your first time using git on this machine, GSE-One will help you configure your git identity (name + email) automatically the first time it creates a commit — no prerequisite `git config` needed.
+> **⚠️ Never `rm -rf .gse`** (no suffix): that deletes project methodology state (backlog, plan, status). Only `.gse-sandbox/` is install scratch that is safe to wipe between reinstalls.
 
 ### Plugin mode (alternative)
 
@@ -509,20 +548,34 @@ python3 gse-one/audit.py --no-save            # stdout only, don't save to disk
 python3 gse-one/audit.py --save-to report.md  # explicit output path
 ```
 
+The commands above produce a **standalone deterministic report**. The `/gse-audit` slash command instead drives the **canonical JSON registry** (see [Report persistence](#report-persistence-default-behavior) below) through these registry commands:
+
+```bash
+python3 gse-one/audit.py --emit-registry      # archive previous + seed _LOCAL/audit/audit.json with engine findings
+python3 gse-one/audit.py --merge findings.json    # fold in LLM findings/recommendations/clusters
+python3 gse-one/audit.py --set-verdicts v.json    # apply Phase 3.5 verdicts in place
+python3 gse-one/audit.py --render             # render the registry to a throwaway /tmp markdown
+python3 gse-one/audit.py --render --out report.md  # ...or to an explicit path
+```
+
 Pure Python stdlib. **Optional dependency:** `pip install pyyaml` enables YAML schema validation.
 
 ### Report persistence (default behavior)
 
-Every audit run (slash command OR CLI) **automatically saves** its report to:
+The two flows persist differently (redesigned in v0.75.0 — single canonical registry):
+
+**`/gse-audit` slash command — one living JSON registry.** The full augmented audit (deterministic findings + LLM findings + strategic recommendations) is written to a single canonical artifact:
 
 ```
-_LOCAL/audits/audit-<ISO-timestamp>.md    # timestamped archive
-_LOCAL/audits/latest.md                   # convenience copy, always overwritten
+_LOCAL/audit/audit.json                   # single source of truth (schema_version, stable AUD-<hash> ids)
+_LOCAL/audit/archive/audit-<ts>-v<ver>.json   # previous registry, auto-archived on each new run
 ```
 
-`_LOCAL/` is gitignored, so audit history accumulates locally without ever reaching git. Use `--no-save` to disable, or `--save-to <path>` for an explicit location (e.g., CI artifact export).
+Each finding carries its own lifecycle in place (`verdict` → `status` → `resolution`), so verification (Phase 3.5) and the later fix session update the same file rather than spawning new ones. Markdown is a **throwaway render** produced on demand to `/tmp` via `python3 gse-one/audit.py --render` — never persisted in the repo tree, so it can never diverge from the JSON.
 
-The `/gse-audit` slash command saves the **augmented** report (deterministic findings + LLM findings from the sub-agents + strategic recommendations). The `audit.py` CLI saves the **deterministic-only** report when invoked standalone. No duplicate files when the skill invokes the engine internally.
+**`audit.py` CLI standalone — deterministic markdown.** Invoked directly, the engine auto-saves its deterministic-only report to `_LOCAL/audits/audit-<ts>-v<version>.md` (+ a `latest.md` convenience copy). Use `--no-save` to disable, or `--save-to <path>` for an explicit location (e.g., CI artifact export).
+
+`_LOCAL/` is gitignored, so audit history accumulates locally without ever reaching git. The retired pre-v0.75.0 multi-file output for the slash command (`audit-<ts>.md` / `latest.md` / `verify-*.md` / `reconciled`) is gone — its md/json divergence is exactly what the single-registry contract eliminates.
 
 ### What the audit covers (28 jobs, 6 categories)
 
@@ -540,7 +593,7 @@ The `/gse-audit` slash command saves the **augmented** report (deterministic fin
 **Category C — Layer pair** *(1 job, bidirectional)*
 - `spec-design-coherence` — design refines spec; may reveal spec improvements
 
-**Category D — Horizontal clusters** *(11 jobs, bidirectional)*
+**Category D — Horizontal clusters** *(11 jobs, mostly bidirectional)*
 - `governance-cluster` — orchestrator + 16 principles + spec/design
 - `deploy-cluster` — deploy activity + agent + refs + tools + templates + spec + design
 - `sprint-lifecycle-cluster` — plan→reqs→design→preview→tests→produce→review→fix→deliver
@@ -549,6 +602,9 @@ The `/gse-audit` slash command saves the **augmented** report (deterministic fin
 - `coach-pedagogy-cluster` — coach agent + pedagogy activities + profile
 - `quality-assurance-cluster` — review+tests+produce+fix + 7 QA agents
 - `delivery-compound-cluster` — deliver + compound + integrate
+- `invocation-contract-consistency` — each agent's `Activated by:` contract matches real invocation steps in activities
+- `distribution-channel-coherence` — installer + curl bootstrap + release workflow + README install/launcher prose stay coherent with the shipped reality
+- `audit-system-self-coherence` — audit protocol + auditor role + catalog + Python engine + README audit section stay mutually coherent
 
 **Category E — Strategic critique** *(4 jobs, bidirectional, severity `recommendation`)*
 - `methodology-design-critique` — is the methodology the best design for its goals?
