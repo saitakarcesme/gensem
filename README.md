@@ -244,7 +244,7 @@ gse-one/
 │   ├── principles/                   # 16 principles (P1-P16)
 │   ├── activities/                   # 24 activity definitions → skills
 │   ├── agents/                       # 11 agents (10 specialized + orchestrator)
-│   └── templates/                    # 30 templates
+│   └── templates/                    # 28 templates
 │
 ├── plugin/                           # Deployable directory
 │   ├── .claude-plugin/plugin.json    # Claude Code manifest
@@ -252,7 +252,7 @@ gse-one/
 │   ├── skills/                       # 24 skills (shared, with name: field)
 │   ├── commands/                     # 24 /gse-<name>.md (Cursor)
 │   ├── agents/                       # 11 agents (shared)
-│   ├── templates/                    # 30 templates (shared)
+│   ├── templates/                    # 28 templates (shared)
 │   ├── tools/                        # Python tools (dashboard, etc.)
 │   ├── rules/gse-orchestrator.mdc    # Cursor only
 │   ├── hooks/                        # Platform-specific hooks
@@ -265,7 +265,7 @@ gse-one/
 │       ├── AGENTS.md                 # Orchestrator body (markered)
 │       └── opencode.json             # Default permissions
 │
-└── install.py                        # Cross-platform installer (3 platforms)
+└── install.py                        # Cross-platform installer (5 platforms)
 ```
 
 **Shared files:** skills, agents, templates, tools — single copy, zero divergence.
@@ -534,7 +534,7 @@ The `/gse-audit` slash command saves the **augmented** report (deterministic fin
 - `activities-structure-uniformity` — all 24 activity skills follow their documented structural patterns
 - `agents-structure-uniformity` — all 11 agents follow uniform skeleton
 - `tools-quality-uniformity` — all 5 Python tools follow SE standards
-- `templates-completeness` — all ~30 templates valid + in MANIFEST
+- `templates-completeness` — all ~28 templates valid + in MANIFEST
 - `references-quality` — references/ docs fresh and self-contained
 
 **Category C — Layer pair** *(1 job, bidirectional)*
