@@ -590,9 +590,9 @@ Score 0–10 based on:
 
 | Factor (spec §7.4 — Git Hygiene Sub-Score) | Weight | Score 10 | Score 0 |
 |--------|--------|----------|---------|
-| Active branches | 20% | <5 | >10 |
+| Active branches | 20% | ≤3 | >10 |
 | Stale branches (not touched in >2 sprints) | 20% | 0 | >3 |
-| Uncommitted changes | 20% | 0 across all worktrees | >0 |
+| Uncommitted changes | 20% | 0 across all worktrees | >5 files |
 | Merge conflicts | 20% | 0 | >0 |
 | Main branch status | 10% | Clean + tagged | Dirty, untagged |
 | Feature branches without review | 10% | 0 | >2 |

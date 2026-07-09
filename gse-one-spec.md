@@ -1828,16 +1828,22 @@ Actionable warnings surfaced from the health score:
 
 ### 7.4 Git Hygiene Sub-Score
 
-The git hygiene score (0–10) is computed from:
+The git hygiene score (0–10) is a weighted sum of 6 sub-metrics (each scored 0–10 between its two anchors, then weighted — canonical operational table in `health.md` Step 1):
 
-| Factor | Good (high score) | Bad (low score) |
-|--------|------------------|-----------------|
-| Active branches | < 5 | > 10 |
-| Stale branches (not touched in >2 sprints) | 0 | > 3 |
-| Uncommitted changes across worktrees | 0 | > 0 |
-| Merge conflicts detected | 0 | > 0 |
-| Main branch status | Clean, tagged | Dirty, untagged |
-| Feature branches without review | 0 | > 2 |
+| Sub-metric | Weight | Score 10 anchor | Score 0 anchor |
+|------------|--------|-----------------|----------------|
+| Active branches | 20% | ≤ 3 | > 10 |
+| Stale branches (not touched in >2 sprints) | 20% | 0 | > 3 |
+| Uncommitted changes across worktrees | 20% | 0 | > 5 files |
+| Merge conflicts detected | 20% | 0 | > 0 |
+| Main branch status | 10% | Clean + tagged | Dirty, untagged |
+| Feature branches without review | 10% | 0 | > 2 |
+
+```
+git_hygiene = sum(sub_metric_score × weight)
+```
+
+Intermediate values are graded between the two anchors (linear interpolation, rounded to the nearest integer).
 
 ---
 
