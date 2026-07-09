@@ -183,16 +183,16 @@ For ad-hoc tasks, the "plan" is the task's own description in `backlog.yaml` (th
 
 ### Step 6 — Finalize
 
-1. Update TASK in `backlog.yaml`:
-   - `status: done`
-   - `completed_at: {timestamp}`
+1. Update TASK in `backlog.yaml` — the final status depends on `requires_review` (per the status enum: `review` = produced, awaiting `/gse:review`; `done` = reviewed + fixed):
+   - If `requires_review: true`: `status: review`, `completed_at` left empty (set later when the review/fix flow reaches `done` or `reviewed`)
+   - If `requires_review: false` (complexity <= 1 or `--no-review`): `status: done`, `completed_at: {timestamp}`
 2. Consume complexity budget: add the task complexity to `.gse/plan.yaml → budget.consumed` and recompute `budget.remaining` (skip in Micro mode — no plan.yaml)
 3. **Cursor fields** (`last_activity`, `last_activity_timestamp`) are maintained centrally by the orchestrator after the activity closes — see `plugin/agents/gse-orchestrator.md` — section "Sprint Plan Maintenance", and `gse-one-implementation-design.md` §10.1 — Sprint Plan Lifecycle. No direct status.yaml write from this activity.
 4. Review scheduling:
-   - If `requires_review: true`: task will be included in next `/gse:review`
-   - If `requires_review: false` (complexity <= 1 or `--no-review`): task is ready for delivery
+   - If `requires_review: true`: task stays at `status: review` and will be included in next `/gse:review` (visible in `/gse:status` → Pending Reviews)
+   - If `requires_review: false`: task is ready for delivery
 5. Report task summary:
-   - Task created and completed: TASK-{ID}
+   - Task created: TASK-{ID} (status: review | done)
    - Complexity consumed: {N}
    - Remaining budget: {M}
    - Review required: {yes/no}
