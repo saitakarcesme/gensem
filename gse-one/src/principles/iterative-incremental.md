@@ -58,7 +58,7 @@ Goal: Implement user notification system
 Tasks:
 - TASK-041: Define notification requirements (REQ-030..REQ-035)
 - TASK-042: Design notification service (DES-015)
-- TASK-043: Implement email notifications (SRC-020)
+- TASK-043: Implement email notifications (implements DES-015)
 - TASK-044: Write notification tests (TST-025..TST-028)
 
 Estimated complexity budget: 12/15 points consumed.

@@ -68,9 +68,9 @@ This principle ensures that nothing falls through the cracks. Every piece of pro
    │   ├── reviews/           # RVW- artefacts
    │   ├── sprints/           # Sprint plans, reviews, retrospectives
    │   └── glossary.md        # Project glossary (P2)
-   ├── src/                   # SRC- artefacts
+   ├── src/                   # Produced source code (no ID prefix — traced via TASK/DES/REQ)
    ├── tests/                 # TST- artefacts
-   └── config/                # CFG- artefacts
+   └── config/                # Produced configuration (no ID prefix)
    ```
 
 ## Examples

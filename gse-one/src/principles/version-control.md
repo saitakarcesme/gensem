@@ -26,6 +26,7 @@ The version control presentation adapts to the user's expertise level. Beginners
    - `refactor` — Code restructuring without behavior change
    - `test` — Adding or modifying tests
    - `config` — Configuration changes
+   - `task` — Ad-hoc task or spike branch (created by `/gse:task`)
 
    Examples: `gse/sprint-03/feat/user-authentication`, `gse/sprint-03/fix/rvw-005`
 
@@ -125,7 +126,7 @@ The version control presentation adapts to the user's expertise level. Beginners
     gse(sprint-03/fix): resolve XSS vulnerability in login form
 
     Sprint: 3
-    Traces: RVW-005, SEC-002
+    Traces: RVW-005
     ```
     Commit at logical checkpoints: after each file is complete, after each test passes, before switching sub-tasks.
 
@@ -169,7 +170,7 @@ Changes: 4 files modified, 2 files added
 Lines: +120 / -15
 Tests: 12/12 passing
 Linting: clean
-Artefacts: SRC-015, SRC-016 (new), TST-030..TST-032 (new)
+Artefacts: src/auth/service.py, src/auth/middleware.py (new), TST-030..TST-032 (new)
 Traces: implements DES-007, satisfies REQ-010..REQ-012
 Complexity: 3 points consumed this sprint (total 9/12)
 

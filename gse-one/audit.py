@@ -3,27 +3,37 @@
 """GSE-One methodology repository auditor — deterministic checks only.
 
 Usage:
-    python3 gse-one/audit.py                       # full, markdown output + auto-save
-    python3 gse-one/audit.py --format json         # for CI / scripting
-    python3 gse-one/audit.py --category version    # only one category
-    python3 gse-one/audit.py --cluster deploy-cluster  # only files in a cluster
-    python3 gse-one/audit.py --list-clusters       # show catalog clusters
-    python3 gse-one/audit.py --fail-on error       # exit 1 on errors
-    python3 gse-one/audit.py --no-save             # stdout only, don't save
-    python3 gse-one/audit.py --save-to <path>      # explicit output path
+    Registry commands (canonical /gse-meta-audit flow — single JSON registry):
+        python3 gse-one/audit.py --emit-registry       # archive previous + seed _LOCAL/audit/audit.json
+        python3 gse-one/audit.py --merge <file>        # fold in LLM findings/recommendations/clusters
+        python3 gse-one/audit.py --set-verdicts <file> # apply Phase 3.5 verdicts in place
+        python3 gse-one/audit.py --render [--out PATH] # render registry to throwaway markdown (/tmp)
 
-By default the report is saved to `_LOCAL/audits/audit-<ISO-timestamp>.md`
-(and copied to `_LOCAL/audits/latest.md` for convenience). The `_LOCAL/`
-directory is gitignored, so saved reports never leak into git. Use
-`--no-save` to disable the auto-save (stdout only).
+    CLI-standalone flow (deterministic report to stdout / auto-save):
+        python3 gse-one/audit.py                       # full, markdown output + auto-save
+        python3 gse-one/audit.py --format json         # for CI / scripting
+        python3 gse-one/audit.py --category version    # only one category
+        python3 gse-one/audit.py --cluster deploy-cluster  # only files in a cluster
+        python3 gse-one/audit.py --list-clusters       # show catalog clusters
+        python3 gse-one/audit.py --fail-on error       # exit 1 on errors
+        python3 gse-one/audit.py --no-save             # stdout only, don't save
+        python3 gse-one/audit.py --save-to <path>      # explicit output path
+
+In the CLI-standalone flow, the report is saved by default to
+`_LOCAL/audits/audit-<ISO-timestamp>.md` (and copied to
+`_LOCAL/audits/latest.md` for convenience). The `_LOCAL/` directory is
+gitignored, so saved reports never leak into git. Use `--no-save` to
+disable the auto-save (stdout only).
 
 For reasoning-based checks (LLM), use the `/gse-meta-audit` slash command in
 Claude Code — it invokes this script for deterministic checks, then
 performs semantic reasoning via the methodology-auditor agent across the
 LLM audit jobs (Categories A-E) defined in .claude/audit-jobs.json — the
-Category F jobs are covered here, deterministically. The slash command saves
-its augmented report (deterministic + LLM findings) to the same
-`_LOCAL/audits/` directory.
+Category F jobs are covered here, deterministically. The slash command
+persists its full augmented audit (deterministic + LLM findings) to the
+single canonical registry `_LOCAL/audit/audit.json`, driven through the
+registry commands above; markdown for that flow is only a throwaway
+`--render` output.
 
 This tool audits the gensem repo itself (not user projects). It lives in
 gse-one/ alongside gse_generate.py (both are maintainer tools).

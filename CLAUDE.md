@@ -19,7 +19,7 @@ This is the **gensem** repository — the source for the GSE-One plugin, an AI e
 
 ## Agent archetypes
 
-The 11 spawnable agents in `src/agents/` deliberately use **4 structural archetypes** (a 12th file, `gse-orchestrator-lite.md`, is a condensed Identity-archetype derivative used only as the Codex `AGENTS.md` under its 32 KiB cap — see "Files to keep in sync" — not a distinct spawnable role). Differences reflect agent roles — don't force one-size-fits-all uniformity.
+The 11 agents in `src/agents/` (10 spawnable + 1 cross-cutting rule reference, guardrail-enforcer) deliberately use **5 structural archetypes** (a 12th file, `gse-orchestrator-lite.md`, is a condensed Identity-archetype derivative used only as the Codex `AGENTS.md` under its 32 KiB cap — see "Files to keep in sync" — not a distinct spawnable role). Differences reflect agent roles — don't force one-size-fits-all uniformity.
 
 | Archetype | Agent(s) | Standard sections |
 |---|---|---|
@@ -29,7 +29,7 @@ The 11 spawnable agents in `src/agents/` deliberately use **4 structural archety
 | **Observational** (8-axis monitoring) | `coach` | Role / Activated by / Perspective / 8 axes / Invocation contract / Evaluation algorithm / Output Formats (plural) / Anti-spam / Recipes / Persistence |
 | **Compliance** (real-time guardrail enforcement) | `guardrail-enforcer` | Role / Activated by / Perspective / Guardrail Tiers / Decision Tier Compliance / Checklist / Output Format (GUARD-NNN + EMERGENCY/HARD/SOFT) |
 
-Common to all 11 spawnable agents: YAML frontmatter with `name` + `description`; opening `**Role:**` + `**Activated by:**` lines; `## Perspective` section. Reviewer archetype agents output `RVW-NNN` findings with `perspective:` field (per spec §6.5) and the canonical 3-tier severity scale `HIGH / MEDIUM / LOW` (+ P15 escalation to CRITICAL). The Compliance archetype (guardrail-enforcer) uses a distinct format (`GUARD-NNN` + `EMERGENCY/HARD/SOFT` guardrail tiers) because its outputs are real-time action alerts, not artefact review findings — the tier labels carry action semantics (WARN / BLOCK / HALT) that would be lost in the severity scale.
+Common to all 11 agents: YAML frontmatter with `name` + `description`; opening `**Role:**` + `**Activated by:**` lines; `## Perspective` section. Reviewer archetype agents output `RVW-NNN` findings with `perspective:` field (per spec §6.5) and the canonical 3-tier severity scale `HIGH / MEDIUM / LOW` (+ P15 escalation to CRITICAL). The Compliance archetype (guardrail-enforcer) uses a distinct format (`GUARD-NNN` + `EMERGENCY/HARD/SOFT` guardrail tiers) because its outputs are real-time action alerts, not artefact review findings — the tier labels carry action semantics (WARN / BLOCK / HALT) that would be lost in the severity scale.
 
 ## Critical rules
 
@@ -122,7 +122,7 @@ This unlocks a third install mode, **`local`** (`install.py --mode local`, or `G
 - Each install function ends with `_write_registry(<target>)` where `<target>` is the mode's install location. `_write_registry`/`_remove_registry` honor the module-level `_LOCAL_REGISTRY_PROJECT` (armed by `_maybe_local()` when `--mode local`) to target `<project>/.gse/registry` instead of `~/.gse-one`.
 - Agents must never read+rewrite tool content — Python tools are maintained by hand in `plugin/tools/` per the build pipeline rule.
 
-**Tool header convention:** each Python tool carries a `# @gse-tool <name> <version>` header on line 2.
+**Tool header convention:** each Python tool carries a `# @gse-tool <name> <version>` header on line 2. Both 2-part versions (`1.0`) and SemVer 3-part versions (`0.1.0`, signaling pre-1.0 maturity) are accepted — do not force alignment.
 
 **Configuration policy — project-local files, no durable env vars.** All durable configuration and state live in project-local files (`.gse/*.yaml`, `.env`, `.gse/deploy.json`) or, for the install registry only, the user-level file `~/.gse-one`. Environment variables are reserved for: (1) ephemeral invocation parameters (the `GSE_*` overrides of `install.sh` — they live only for the duration of the command), (2) platform/OS conventions (`HOME`, `LOCALAPPDATA`, `NO_COLOR`/`FORCE_COLOR`). No tool, hook, or skill may read durable methodology state from a global environment variable.
 
@@ -237,6 +237,8 @@ When authoring a new activity, pick the pattern that matches the semantic:
 - Disjoint modes selected by flag/arg → Multi-mode (add an inline workflow structure note per Meta-2).
 - Long-running operation with idempotent milestones → Phase-over-Step (deploy is the reference).
 
+Forward-authoring convention for sub-step headings: `#### Step N.M — Title`. Applies to new sub-steps only — existing variant forms stay as-is (no retroactive sweep).
+
 ### Memory policy — in-repo only
 Any project convention, rule, preference, or decision that Claude must remember across sessions for this project MUST be recorded in a versioned file in this repo — typically this `CLAUDE.md`, or another markdown doc under source control. Do NOT write such information to Claude's per-machine auto-memory (`~/.claude/projects/<hash>/memory/`).
 
@@ -268,7 +270,7 @@ An audit produces ONE living machine artifact — its primary consumer is the co
 - **Stable finding identity:** `AUD-<8 hex of sha1(category|file|normalized title)>` (recommendations: `REC-…`). Stable across runs → enables new/resolved/persisting diff and lets commits/CHANGELOG reference a finding id.
 - **Finding lifecycle (fields, not files):** `verdict: detected → CONFIRMED|FALSE_POSITIVE|NEEDS_REFINEMENT|SCOPE_CHANGE`; `status: open → in_progress → fixed|wontfix|deferred`. FALSE_POSITIVE → `wontfix` + a `detector_issues[]` entry (audit.py work item). Category E recommendations live in their own array (`status: proposed|accepted|rejected|backlog`).
 - **`audit.py` registry commands:** `--emit-registry` (archive + engine seed), `--merge <file>` (fold in LLM findings/recommendations/clusters), `--set-verdicts <file>` (apply Phase 3.5 verdicts), `--render [registry] [--out]`. The legacy `--format json`/`--no-save` stdout flow is preserved for piping.
-- **Never** write `audit-<ts>.md` / `latest.md` / `verify-*.md` / `reconciled` files — those are the retired pre-v0.75.0 multi-file pattern (their drift was the reason for this contract). Full spec: `_LOCAL/maintenance/2026-06-13-audit-output-redesign.md`.
+- **Never** write `audit-<ts>.md` / `latest.md` / `verify-*.md` / `reconciled` files in the slash-command/registry flow — those are the retired pre-v0.75.0 multi-file pattern (their drift was the reason for this contract). The CLI-standalone `audit.py` auto-save (deterministic markdown to `_LOCAL/audits/`, documented in README) stays sanctioned. Full spec: `_LOCAL/maintenance/2026-06-13-audit-output-redesign.md`.
 
 ### Communication style (development sessions)
 

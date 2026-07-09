@@ -512,7 +512,7 @@ Thank you — contributions keep `/gse:deploy` usable across releases of Hetzner
 
 ## Auditing the plugin
 
-GSE-One ships with a **two-part audit tool** for maintainers and forkers of the methodology repository:
+GSE-One ships with a **three-part audit tool** for maintainers and forkers of the methodology repository:
 
 1. **Coherence audit** — checks internal consistency across spec, design, and implementation (23 parallel LLM jobs)
 2. **Strategic critique** — evaluates methodology quality, relevance, and user value (4 of the 28 jobs)
@@ -588,7 +588,7 @@ Each finding carries its own lifecycle in place (`verdict` → `status` → `res
 **Category B — Intra-layer uniformity** *(5 jobs, non-directional)*
 - `activities-structure-uniformity` — all 24 activity skills follow their documented structural patterns
 - `agents-structure-uniformity` — all 11 agents follow uniform skeleton
-- `tools-quality-uniformity` — all 5 Python tools follow SE standards
+- `tools-quality-uniformity` — all Python tools (4 plugin tools + audit engine + catalog loader) follow SE standards
 - `templates-completeness` — all ~28 templates valid + in MANIFEST
 - `references-quality` — references/ docs fresh and self-contained
 
@@ -632,7 +632,7 @@ python3 gse-one/audit_catalog.py --show deploy-cluster   # inspect one job
 
 The next `/gse-meta-audit` invocation will automatically include any new job.
 
-### Deterministic checks (Python engine, 12 categories)
+### Deterministic checks (Python engine — 12 coherence categories, plus the 5 Category F categories listed above)
 
 Complement the LLM jobs with fast syntactic/structural checks:
 

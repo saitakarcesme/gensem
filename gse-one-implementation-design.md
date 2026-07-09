@@ -24,9 +24,9 @@ This document details the implementation design of GSE-One: how the abstract con
 
 ---
 
-## 2. Plugin System Comparison
+## 2. Platform Git Capabilities
 
-All three supported environments support git operations:
+All three primary environments support git operations:
 - Claude Code: via `Bash` tool (git commands) and `EnterWorktree`/`ExitWorktree` tools
 - Cursor: via terminal commands and Composer agent (multi-file editing in worktree context)
 - opencode: via `bash` tool (git commands) and native TS plugin hooks (`tool.execute.before/after`)
@@ -641,7 +641,7 @@ Arguments: $ARGUMENTS
 ## Prerequisites
 
 1. Read `.gse/profile.yaml` → competency_map section
-2. Read `.gse/profile.yaml` → `user.language`, `dimensions.it_expertise`, `dimensions.domain_background` (the expertise dimensions live under `dimensions.*`, not `user.*`)
+2. Read `.gse/profile.yaml` → `dimensions.language.chat`, `dimensions.it_expertise`, `dimensions.domain_background` (the expertise dimensions live under `dimensions.*`, not `user.*`)
 3. If `--notes`, read `docs/learning/` directory listing
 
 ## Workflow
@@ -664,8 +664,11 @@ Consultation mode — read and display, no session.
 
 ### If proactive (agent-initiated)
 
-This is triggered by other skills (go, compound, plan, review) at transition points.
-The learn skill receives the topic and trigger context.
+Proactive triggering is owned by the coach's pedagogy axis: the orchestrator invokes
+the coach at the documented moments — which still originate from activity transition
+points (go, compound, plan, review) — and the coach decides WHEN a learning preamble
+is warranted (spec §P14 Pedagogical ownership map; design §5.17).
+The learn skill receives the topic and trigger context once the preamble Gate is accepted.
 
 1. Present using the canonical 5-option P14 preamble — see spec §P14 — P14 preamble — 5-option format (canonical) for the authoritative source. The preamble block is:
    ```
@@ -853,7 +856,7 @@ At start of /gse:go, when no sprint is defined:
 1. If `.gse/config.yaml` exists with `lifecycle.mode` → use stored mode
 2. Otherwise → run complexity assessment:
    - Scan 7 structural complexity signals: dependencies (manifest), persistence (ORM/SQL/DB config), entry points, multi-component, tests, CI/CD, git maturity
-   - Apply rules: no manifest + no git + ≤2 source files (trivialiy pre-filter) → Micro; persistence/multi-component/CI/deps>10/entry>10 → Full; otherwise → Lightweight
+   - Apply rules: no manifest + no git + ≤2 source files (triviality pre-filter) → Micro; persistence/multi-component/CI/deps>10/entry>10 → Full; otherwise → Lightweight
    - Present as Gate decision with rationale
    - Store chosen mode in `config.yaml → lifecycle.mode`
 
@@ -1057,7 +1060,7 @@ The canonical run produces TCP-NNN campaign, `test_evidence` update on the TASK,
 ### 5.11 `/gse:review` — Devil's Advocate Agent (P16)
 
 ````markdown
-### Devil's Advocate — [IMPL] review tier (added to review skill)
+### Devil's Advocate — [AI-INTEGRITY] pass after the [IMPL] tier (added to review skill)
 
 After the standard quality review (the `[IMPL]` tier per spec §6.5), activate the devil-advocate agent — in a freshly spawned sub-agent context (Claude Code: Agent tool; Cursor: subagent; opencode: subagent), context brief only, inline fallback traced as `DA execution: inline-degraded` per review.md Step 3:
 
@@ -1092,16 +1095,16 @@ After the standard quality review (the `[IMPL]` tier per spec §6.5), activate t
 
 3. **Output:** Findings tagged `[AI-INTEGRITY]` in the review report:
    ```
-   RVW-012 [AI-INTEGRITY] [HIGH] — Library does not exist
+   RVW-012 [HIGH] [AI-INTEGRITY] — Library does not exist
      Agent recommended `fastapi-magic-auth`. Not found on PyPI.
      Fix: Replace with `fastapi-users` (verified: exists, 2.3k stars).
 
-   RVW-013 [AI-INTEGRITY] [MEDIUM] — Unchallenged user decision
+   RVW-013 [MEDIUM] [AI-INTEGRITY] — Unchallenged user decision
      User chose MongoDB for relational data (DEC-008). Agent agreed without
      presenting PostgreSQL as alternative. Risk: relational queries will be
      complex and slow.
 
-   RVW-014 [AI-INTEGRITY] [LOW] — Outdated pattern
+   RVW-014 [LOW] [AI-INTEGRITY] — Outdated pattern
      Agent used `datetime.utcnow()` which is deprecated since Python 3.12.
      Fix: Use `datetime.now(UTC)`.
    ```
@@ -1111,7 +1114,7 @@ After the standard quality review (the `[IMPL]` tier per spec §6.5), activate t
    - Findings where confidence was "Verified" but verification was wrong → CRITICAL
 ````
 
-### 5.12 User Pushback Detection (Cross-cutting, in settings.json)
+### 5.12 User Pushback Detection (Cross-cutting, orchestrator body)
 
 ```markdown
 ### Pushback Logic (embedded in the orchestrator agent body — delivered via settings.json / .mdc / AGENTS.md per platform)
@@ -1119,8 +1122,11 @@ After the standard quality review (the `[IMPL]` tier per spec §6.5), activate t
 The agent tracks a `consecutive_acceptances` counter in `.gse/status.yaml`:
 
 1. After each Gate decision:
-   - If user chose the recommended option without discussion: increment counter
-   - If user chose "Discuss", modified, or chose non-recommended: reset counter
+   - If user chose the recommended option without discussion: increment counter via
+     `counters.py incr consecutive_acceptances` (see §5.18 — Integrity-counter helper;
+     never hand-edit the YAML)
+   - If user chose "Discuss", modified, or chose non-recommended: reset counter via
+     `counters.py reset consecutive_acceptances`
 
 2. Threshold check (calibrated by expertise):
    - Beginner: trigger at 3
@@ -1133,8 +1139,12 @@ The agent tracks a `consecutive_acceptances` counter in `.gse/status.yaml`:
    - Present the critical checkpoint pattern (see spec P16)
 
 4. After checkpoint:
-   - If user says "everything looks good": reset counter, don't trigger
-     again until next sprint
+   - If user says "everything looks good": reset counter. Only if the user says it
+     **twice in a row** does the agent suppress the checkpoint for the rest of the
+     sprint (spec §P16 — User Pushback Encouragement). Beginner exception
+     (`it_expertise: beginner`): the suppression window is the next 3 Gates only —
+     not the whole sprint — and the coach emits one Inform note when suppression
+     activates
    - If user revisits a decision: reset counter, re-enter Gate for that decision
    - If user says "overwhelmed": switch to more Gate decisions, reduce pace
 ```
@@ -1194,7 +1204,7 @@ When `/gse:go` is invoked:
 
 **Activity Execution Fidelity Invariant (spec §14.3).** Realized by two rules operating at different granularities:
 
-1. **Activity load** — whenever the orchestrator or an activity file resolves an execution (direct, inline-routed, or auto-triggered), the agent MUST open the target's source file — Claude Code: `$(cat ~/.gse-one)/skills/<name>/SKILL.md`; Cursor: `$(cat ~/.gse-one)/commands/gse-<name>.md`; opencode: `$(cat ~/.gse-one)/opencode/skills/<name>/SKILL.md`.
+1. **Activity load** — whenever the orchestrator or an activity file resolves an execution (direct, inline-routed, or auto-triggered), the agent MUST open the target's source file — Claude Code: `$(cat ~/.gse-one)/skills/<name>/SKILL.md`; Cursor: `$(cat ~/.gse-one)/commands/gse-<name>.md`; opencode: `$(cat ~/.gse-one)/skills/<name>/SKILL.md` (same as Claude Code).
 
 2. **Step execution** — the agent MUST execute every Step in order. Legitimate skip conditions: conditional Step (source declares a guard), user override, or frontmatter-declared exempt. Agent-driven skips MUST emit an Inform-tier note. Exempt activities (display-only): `/gse:status`, `/gse:health`, `/gse:backlog` display, `/gse:audit`.
 
@@ -1226,7 +1236,7 @@ Evaluate states in order — the first matching row wins.
 
 | Current state | Next action |
 |---------------|-------------|
-| No sprint exists | Sub-decision: greenfield + no `docs/intent.md` → Intent Capture (Step 7 — Intent Capture); else Complexity Assessment (Step 6) → mode-appropriate start (Micro → PRODUCE; Lightweight → PLAN; Full → LC01 `COLLECT` > `ASSESS` > `PLAN`) |
+| No sprint exists | Sub-decision: greenfield + no `docs/intent.md` → Intent Capture (spec §14.3 Step 5 — Intent Capture); else Complexity Assessment (spec §14.3 Step 6 — Complexity Assessment) → mode-appropriate start (Micro → PRODUCE; Lightweight → PLAN; Full → LC01 `COLLECT` > `ASSESS` > `PLAN`) |
 | `plan.yaml` exists, `status: draft` | Resume PLAN — present plan summary, ask for approval Gate |
 | `plan.yaml.workflow.active == reqs` | Start REQS — test-driven requirements (Hard guardrail: PRODUCE blocked until REQS exist) |
 | `plan.yaml.workflow.active == design` | Start DESIGN (record `design` in `workflow.skipped` if not needed, then advance) |
@@ -1329,6 +1339,10 @@ current_sprint: 3
 current_phase: LC02
 # plan status lives in .gse/plan.yaml (active | completed | abandoned)
 
+# Session pause state (set by /gse:pause, cleared by /gse:resume)
+session_paused: false                  # true between /gse:pause and /gse:resume
+pause_checkpoint: ""                   # filename of the active checkpoint (e.g., checkpoint-2026-04-21-1430.yaml)
+
 activity_history:                      # entries: { activity, completed_at, sprint, notes }
   - activity: collect
     completed_at: "2026-04-08T09:15:00Z"
@@ -1368,6 +1382,12 @@ fix_attempts_on_current_symptom: 0
 # Scope reconciliation anchor (set at activity start by produce/task; see §5.16 — Scope Reconciliation & Inform-Tier Summary — Design Mechanics)
 activity_start_sha: ""
 
+# Coach agent ledgers (spec P14 + agents/coach.md)
+learning_preambles: []                 # pedagogy axis — list of { topic, offered_at, sprint, response, lrn_ref, timestamp }
+detected_gaps: []                      # inferred-gap ledger — list of { concept, source, occurrences, last_seen, addressed_by_lrn }
+profile_drift_signals: {}              # profile-calibration axis — map of { dimension → { observations, last_seen, direction, evidence } }
+workflow_observations: []              # cross-sprint 7-axis ledger — list of { axis, moment, observation, evidence, severity, timestamp, sprint, summarized }
+
 last_activity: /gse:produce
 last_activity_timestamp: "2026-04-11T09:15:00Z"
 
@@ -1397,7 +1417,7 @@ The spec-level *Sprint Freeze* guardrail materializes as follows:
 
 **Writeable window:** a sprint is writeable by activities only while `.gse/plan.yaml` exists with `status: active`. When `/gse:deliver` Step 9 sets `status: completed`, the sprint becomes frozen for write operations.
 
-**Activities that MUST consult `.gse/plan.yaml.status` before any write to `.gse/backlog.yaml` or transition of a TASK:**
+**Activities that MUST consult `.gse/plan.yaml.status` before creating a sprint-assigned TASK or transitioning a TASK:**
 
 - `/gse:task` (creates a new TASK)
 - `/gse:produce` (transitions TASK `planned` → `in-progress` → `review`)
@@ -1408,7 +1428,7 @@ The spec-level *Sprint Freeze* guardrail materializes as follows:
 **Activities exempt from the Sprint Freeze preflight** (three categories — *closed-sprint consumers* operate on a sprint that is already frozen, e.g. post-delivery capitalization; *non-mutating activities* do not transition TASK state; *transition performers* are the activity that effects the freeze transition itself, and consulting a guard they are about to set would be self-defeating):
 
 - `/gse:compound`, `/gse:integrate` — closed-sprint consumers (operate after deliver in LC03).
-- `/gse:pause`, `/gse:resume`, `/gse:go`, `/gse:status`, `/gse:health`, `/gse:backlog`, `/gse:learn`, `/gse:hug`, `/gse:collect`, `/gse:assess`, `/gse:deploy` — non-mutating activities (do not transition TASK state; `/gse:deploy` writes `deploy.json` but not `backlog.yaml`).
+- `/gse:pause`, `/gse:resume`, `/gse:go`, `/gse:status`, `/gse:health`, `/gse:backlog`, `/gse:learn`, `/gse:hug`, `/gse:collect`, `/gse:assess`, `/gse:deploy`, `/gse:audit` — non-mutating activities (do not create sprint-assigned TASKs or transition TASK state; pool-only writes to `backlog.yaml` (`sprint: null`) by `/gse:backlog`, `/gse:collect`, `/gse:assess` do not touch the frozen sprint and are freeze-safe; `/gse:deploy` writes `deploy.json` but not `backlog.yaml`; `/gse:audit` writes only a session-level report snapshot, never TASK state).
 - `/gse:plan --strategic` — sprint-opening activity; resets `plan.yaml.status` to `active` for the successor sprint.
 - `/gse:deliver` — **transition performer**: Step 9.2 is the line that sets `plan.yaml.status: completed` (the freeze trigger itself). A preflight check at the start of deliver would be either pointless (status still `active`) or self-blocking (status already `completed`). Deliver is therefore exempt by necessity, not by scope.
 
@@ -1665,7 +1685,7 @@ Scope Reconciliation runs FIRST (material deltas), Inform-Tier Summary SECOND (d
 
 **Failure modes:**
 - `activity_start_sha` missing or invalid (interrupted session, Micro mode, `git.strategy: none`) → skip Scope Reconciliation with a one-line Inform note ("Scope Reconciliation skipped: no git baseline recorded"). Proceed with Inform-Tier Summary normally.
-- Commits without `Traces:` trailer (user commited manually, or legacy commits) → agent can still enumerate files but cannot match them to planned IDs. Treats the files as unlabeled and asks the user to clarify in a one-shot prompt.
+- Commits without `Traces:` trailer (user committed manually, or legacy commits) → agent can still enumerate files but cannot match them to planned IDs. Treats the files as unlabeled and asks the user to clarify in a one-shot prompt.
 - Plan artefacts missing (`reqs.md` or `design.md` absent — Lightweight mode, or early sprint) → skip Scope Reconciliation; Inform-Tier Summary still applies.
 
 **Intent Capture — Design Mechanics (spec §3 Step 5 Intent Capture, P6 INT- prefix):**
@@ -2300,16 +2320,20 @@ Invoked by the orchestrator with a `moment` tag. Each axis is activated by speci
   reason: "already covered (LRN-002)" | "previously not-interested" | "cap reached" | "no overlap" | ...
   # if propose:
   topic: "{precise formulation, 1 sentence}"
+  activity: "{current activity}"
   trigger: explicit-goal | inferred-gap | gate-preamble | compound-review
   preamble_content:
     core_concept: "{1-2 sentences}"
     example: "{concrete 3-10 line example}"
     pitfall: "{common mistake + fix hint}"
   suggested_depth: quick | deep
+  matching_goal: "{quote from learning_goals, if explicit}"
+  inferred_gap_source: "{description, if inferred}"
 
 # Workflow axes outputs (axes 2-8) — field names per coach.md Output Formats (authoritative)
 - coach: advise
   axis: profile_calibration | sprint_velocity | workflow_health | quality_trends | engagement_pattern | process_deviation | sustainability
+  severity: low | medium | high
   observation: "{1-2 sentences of what the coach has noticed}"
   data_points: ["{concrete signal 1}", "{concrete signal 2}"]
   recommended_action: "{actionable next step — may cite an existing command like /gse:hug --update}"
@@ -2327,7 +2351,9 @@ On `coach: propose` (pedagogy), the orchestrator presents the 5-option P14 Gate.
 | Learning notes | `docs/learning/LRN-*.md` | Pedagogy | Per-project, durable artefacts with traces |
 | `profile_drift_signals{}` | `.gse/status.yaml` | Profile calibration | Per-project, persistent — feeds `/gse:hug --update` proposals |
 | `workflow_observations[]` | `.gse/status.yaml` | sprint_velocity, workflow_health, quality_trends, engagement_pattern, process_deviation, sustainability | **Persistent** — cross-sprint ledger for trending. Axes like `quality_trends`, `sprint_velocity`, `sustainability` depend on history across ≥ 3 sprints. Individual observations may be summarized (not purged) at `/gse:compound`. |
-| Coaching recipes | `gse-one/plugin/agents/coach.md` Recipes section | All axes (tagged `for: pedagogy \| workflow \| both`) | **Edit destination:** the user-local copy in `.claude/agents/coach.md` / `.cursor/agents/coach.md` (per-project) OR the shipped template (shared defaults) |
+| Coaching recipes | `gse-one/plugin/agents/coach.md` Recipes section | All axes (tagged `for: pedagogy \| workflow \| both`) | **Edit destination:** the installed `coach.md` copy resolved through the registry (all 5 platforms — see CLAUDE.md Tool architecture per-mode registry table) OR the shipped template (shared defaults) |
+
+*Recipe scope note:* in global plugin modes the installed `coach.md` is shared across all projects on the machine; only no-plugin / local installs give a per-project copy.
 
 **Coaching recipes — dual maintenance:**
 
@@ -2483,7 +2509,7 @@ The `config.yaml → deploy.app_type` key (`auto | streamlit | python | node | s
 **Execution tools.** `/gse:deploy` delegates complex deterministic operations to two Python tools under `plugin/tools/`:
 
 - `coolify_client.py` — a standard-library HTTP client for Coolify API v1 (projects, environments, applications, deploy triggers). Exposes `CoolifyClient` with typed methods and retries on 5xx errors.
-- `deploy.py` — an orchestrator exposing CLI subcommands used by the skill: `init-state`, `state`, `detect`, `subdomain`, `env-{get,set,delete}`, `record-{phase,server,coolify,domain,role,cdn}`, `wait-dns`, `preflight`, `deploy-app`, `app-status`, `destroy`, `training-{init,reap}`. Grouped by purpose: state lifecycle (init-state / state / detect), naming (subdomain), env editing (env-*), phase persistence (record-phase / record-server / record-coolify / record-domain), orientation and CDN metadata (record-role / record-cdn), preflight gates (wait-dns, preflight), app lifecycle (deploy-app / app-status / destroy), and training-mode lifecycle (training-init / training-reap).
+- `deploy.py` — an orchestrator exposing CLI subcommands used by the skill: `init-state`, `state`, `detect`, `subdomain`, `env-{get,set,delete}`, `record-{phase,server,coolify,domain,role,cdn}`, `wait-dns`, `preflight`, `deploy-app`, `app-status`, `destroy`, `training-{init,reap}`. Grouped by purpose: state lifecycle (init-state / state / detect), naming (subdomain), env editing (env-*), phase persistence (record-phase / record-server / record-coolify / record-domain), orientation and CDN metadata (record-role / record-cdn), preflight gates (wait-dns, preflight), app lifecycle (deploy-app / app-status / destroy), and training-mode lifecycle (training-init / training-reap). Note (Meta-2): `deploy-app` also accepts `--memory` / `--cpu` (persisted as `resources.{memory_limit,cpu_limit}`, defaults `512m` / `0.5`) — a CLI-only capability not yet exposed through config; config-driven exposure is a separate future feature.
 
 **Skill/tool boundary:** the skill narrates the workflow, handles user interaction (prompts, Gate decisions, cost displays), and performs shell-based operations (ssh, apt, hcloud). The tool handles Coolify API calls, state mutation, subdomain sanitization, situation detection, and the end-to-end deploy flow (Phase 6). Each phase 1–5 calls `record-phase` at its end to guarantee idempotence. Phase 6 is consolidated into a single `deploy-app` call.
 
@@ -2510,7 +2536,7 @@ The tools require only Python 3.9+ standard library (no external dependencies). 
 
 **Sequential deploy-app rule.** `ensure_project` (lookup-or-create of the per-user Coolify project `gse-{DEPLOY_USER}`) is not atomic — the Coolify API has no atomic get-or-create, so two concurrent `deploy-app` calls for the same `DEPLOY_USER` (e.g., a WEB and an API app) can both create the project, producing identically-named duplicates. The skill therefore instructs the user to wait for each `deploy-app` to return before launching the next (deploy.md Phase 6 concurrency note; cleanup recipe in `docs/deploy/coolify-cli-cheatsheet.md`). Different learners target different `gse-{user}` projects and are unaffected.
 
-**Deployed-version verification (Phase 6 Step 6).** After Coolify reports `running:healthy`, the skill compares the deployed `SOURCE_COMMIT` (cache-bust ARG baked into the image) against the local `git rev-parse HEAD`. On MISMATCH it proposes: forced redeploy (`--redeploy`), inspection of Coolify's deployment history for a silent rollback, or a cache hard-refresh — catching the "healthy but stale" failure mode observed in real sessions.
+**Deployed-version verification (Phase 6 Step 6).** After Coolify reports `running:healthy`, the skill runs a best-effort HTTP probe of the live app's version surfaces — a `/version` endpoint if the project exposes one, the health endpoint (inspecting any embedded version string), or a version marker in the served HTML (footer, meta tag, JS bundle hash) — and compares the detected string against the local git HEAD (short SHA) plus the latest `v*` tag on `main` if one exists. The verdict is `OK | MISMATCH | UNKNOWN`. On MISMATCH it proposes: forced redeploy (`--redeploy`), inspection of Coolify's deployment history for a silent rollback, or a cache hard-refresh — catching the "healthy but stale" failure mode observed in real sessions. The check is purely Inform-tier and non-blocking: UNKNOWN (no version surface) carries no signal and never blocks completion.
 
 **Training tools.** Two `deploy.py` subcommands support the instructor workflow in training mode:
 
@@ -2544,7 +2570,7 @@ The audit activity implements spec §15 Methodology Audit. This section details 
 
 | File | Role | Nature |
 |------|------|--------|
-| `src/activities/audit.md` | Activity workflow (6 Steps) | Source (edited; transformed into `plugin/skills/audit/SKILL.md` + `plugin/commands/gse-meta-audit.md` + opencode variants by `gse_generate.py`) |
+| `src/activities/audit.md` | Activity workflow (6 Steps) | Source (edited; transformed into `plugin/skills/audit/SKILL.md` + `plugin/commands/gse-audit.md` + opencode variants by `gse_generate.py`) |
 | `src/templates/sprint/audit.md` | Report template populated at Step 3 | Source (copied verbatim by `gse_generate.py`) |
 | `plugin/tools/project-audit.py` | Deterministic audit engine (direct-edit tool per CLAUDE.md §Tool architecture, `# @gse-tool project-audit <version>` header) | Plugin direct file — NOT regenerated by `gse_generate.py` |
 | `src/agents/project-reviewer.md` (Phase 2, deferred) | Semantic sub-agent (Reviewer archetype) invoked at Step 2 | Source (will be added when Phase 2 ships) |
@@ -2609,7 +2635,7 @@ When Phase 3 ships:
 
 1. **New invariant** `Methodology Audit Auto-Trigger Invariant` added to `src/agents/gse-orchestrator.md` Process Discipline section.
 2. **Detection:** hybrid keyword + coach correlation:
-   - **Keyword filter (cheap):** pattern match against user messages (`tu n'as pas`, `tu as oublié`, `pourquoi tu`, `en fait tu fais rien`, French+English variants). Similar pattern to the existing Ad-hoc Bug Report Detection (spec §P16).
+   - **Keyword filter (cheap):** pattern match against user messages (`tu n'as pas`, `tu as oublié`, `pourquoi tu`, `en fait tu fais rien`, French+English variants). Similar pattern to the existing Ad-hoc bug report detection (gse-orchestrator.md Root-Cause Discipline invariant, operationalizing spec §P16 — Root-Cause Discipline before patching).
    - **Coach confirmation (reuse):** coach's `engagement_pattern` axis or `process_deviation` axis must also signal frustration/deviation. Both signals must align to avoid false positives.
 3. **Counter in `status.yaml`:** new field `methodology_drift_signals: {keyword_hits: int, coach_alerts: int, last_seen: iso8601}` (schema documented in §5.16 State Schemas after Phase 3 lands).
 4. **Threshold:** at ≥ 2 correlated signals within the current session, the orchestrator emits Inform + Gate *"Run audit now / Defer / Discuss"*. Never auto-applies corrections.
@@ -2622,7 +2648,7 @@ Phase 1 ships the deterministic layer + manual invocation only. Phase 2 (semanti
 
 ## 6. Methodology Deployment: Cross-Platform Parity
 
-The GSE-One methodology is loaded as the agent's permanent identity on all three supported platforms (Claude Code, Cursor, opencode) through a per-platform delivery mechanism, ensuring identical behavior regardless of the tool used.
+The GSE-One methodology is loaded as the agent's permanent identity on all three primary platforms (Claude Code, Cursor, opencode) through a per-platform delivery mechanism, ensuring identical behavior regardless of the tool used.
 
 ### 6.1 Claude Code: Agent Reference
 
@@ -2813,7 +2839,7 @@ If `git_available` is false OR `git.strategy` is `none`:
 - Skip all git operations silently
 - Do not mention branches, worktrees, or merges
 - Work directly on files in place
-- Health dashboard omits the "Git hygiene" sub-dimension (score out of 6 dimensions)
+- Health dashboard omits the "Git hygiene" sub-dimension (score denominator reduced by one, per §5.8 — Configurable Dimensions)
 - Log: `Inform: git not available or disabled — working without version control`
 
 If this is the first session and git IS available but `git.strategy` is not set:
@@ -2843,9 +2869,11 @@ The `marketplace.json` install path is `"plugin"` (not `"dist/claude"`), reflect
 ├── status.yaml                      # Sprint state, health score, complexity budget, phase
 ├── plan.yaml                        # Living sprint plan (workflow, budget, coherence)
 ├── backlog.yaml                     # Unified work items (TASK) with git state per item
+├── backlog-archive.yaml             # Delivered TASKs compacted out of backlog.yaml (orchestrator / compound)
 ├── sources.yaml                     # External source registry
 ├── decisions.md                     # Decision journal (Inform + Gate tiers)
 ├── decisions-auto.log               # Auto-tier decision log
+├── deploy.json                      # Infrastructure state for /gse:deploy (phases, server, Coolify, applications)
 └── checkpoints/                     # Session checkpoints
     └── checkpoint-YYYY-MM-DD-HHMM.yaml
 ```

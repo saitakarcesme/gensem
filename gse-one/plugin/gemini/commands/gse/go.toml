@@ -197,7 +197,7 @@ Evaluate the project using these 7 complexity signals (each takes <1 second):
 
 #### Step 6.2 — Determine Recommended Mode
 
-Apply these rules (first match wins). The first rule uses source file count as a **trivialiy pre-filter** (not a complexity signal):
+Apply these rules (first match wins). The first rule uses source file count as a **triviality pre-filter** (not a complexity signal):
 
 | Condition | Recommended mode |
 |-----------|-----------------|

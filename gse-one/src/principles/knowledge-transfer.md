@@ -112,7 +112,7 @@ Knowledge transfer is cumulative and tracked. The agent maintains learning notes
    - `/gse:learn --notes git` — show the note on git
    - `/gse:learn --notes --recent` — notes from the current sprint
    - `/gse:learn --roadmap` — competency map: learned, gaps, recommendations
-   - During any activity, the agent can reference: "See your note on testing strategies (`docs/learning/testing-strategies.md`)"
+   - During any activity, the agent can reference: "See your note on testing strategies (`docs/learning/LRN-{NNN}-testing-strategies.md`)"
 
 8. **Progressive reduction** — As a competency moves from beginner to intermediate to advanced, the agent:
    - Reduces contextual tips for that topic

@@ -452,7 +452,7 @@ An agent is a named role that shapes how the coding agent reasons about a specif
 | **security-auditor** | Identifies security vulnerabilities and risks. | `/gse:design`, `/gse:review` |
 | **ux-advocate** | Evaluates user experience and accessibility. | `/gse:preview`, `/gse:review` |
 | **guardrail-enforcer** | Canonical rule reference for guardrail compliance (P11): defines the Soft/Hard/Emergency tier taxonomy, Decision Tier compliance matrix, and GUARD-NNN output format. Not spawned as a runtime sub-agent — its semantics are enforced deterministically by system hooks (`plugin/hooks/hooks.claude.json`: branch protection, force-push interception, open-findings warning) and by inline Step 0 guardrail checks authored into activities (Sprint Freeze, Hard/Soft preflights, Decision tier routing). This **Compliance archetype** invocation pattern is distinct from Reviewer/Operational/Observational/Identity archetypes — see CLAUDE.md §Agent archetypes. | Consulted as rule reference (no direct invocation) |
-| **devil-advocate** | Challenges the agent's own productions for AI integrity (P16). | `/gse:review` |
+| **devil-advocate** | Challenges the agent's own productions for AI integrity (P16). | `/gse:review`; `/gse:deliver` Step 1.6 — Minimal Integrity Pass (Lightweight); `/gse:fix` focused-review escalation (P16 Root-Cause Discipline) |
 | **coach** | Observes the AI+user collaboration across **8 axes** — pedagogy (P14: explicit learning goals + inferred gaps, 5-option P14 preambles, LRN- notes); profile calibration (drift between declared profile and observed behavior); sprint velocity; workflow health (stalls, friction); quality trends (test pass-rate, review findings); engagement pattern (P16 pushback, acceptance streaks); process deviation (activity skips, shortcuts); sustainability (session length, cadence). Each axis is individually toggleable. Holds extensible **coaching recipes** (both pedagogical and workflow) — user-editable and self-updatable via compound Axe 3. | Activity start (pedagogy axis when learning_goals set); sprint close and mid-sprint stall (velocity/health/quality); end of Gate sequences (engagement); activity-skip events (process deviation); session-boundary events (sustainability); `/gse:go` after recovery check (workflow overview); `/gse:pause` end-of-session check; `/gse:compound` Axe 2 (axes 2-8 feed) and Axe 3 (axes 1-2 feed + recipe curation) |
 | **deploy-operator** | Manages Hetzner/Coolify deployment lifecycle. Governs safety (credential handling, no-exposure), idempotence (phase tracking in `.gse/deploy.json`), and cost-confirmation gates. | `/gse:deploy` |
 
@@ -469,14 +469,14 @@ The 16 principles are organized into four categories:
 | **Infrastructure** | P12, P13, P14 | What GSE-One manages automatically behind the scenes |
 | **AI Integrity** | P15, P16 | How GSE-One protects the user from the agent's own limitations |
 
-Principles also split along a second axis, made explicit here so audits read them correctly: **definitional principles** (P2, P3) establish vocabulary and scope — they impose no runtime obligation on the agent and cannot be "violated", only contradicted by the artefacts that operationalize them (§16 Glossary for P2; P6 + §12.2 Artefact Frontmatter for P3). All other principles are **behavioral**: each carries at least one auditable agent obligation. This asymmetry is deliberate (Meta-1 — documented, not forced into uniformity).
+Principles also split along a second axis, made explicit here so audits read them correctly: **definitional principles** (P2, P3) establish vocabulary and scope — they impose no runtime obligation on the agent and cannot be "violated", only contradicted by the artefacts that operationalize them (§16 Glossary for P2; P6 + §12.2 — Artefact Metadata for P3). All other principles are **behavioral**: each carries at least one auditable agent obligation. This asymmetry is deliberate (Meta-1 — documented, not forced into uniformity).
 
 **Foundations**
 
 ### P1 — Iterative & Incremental Lifecycle
 Documents and artefacts correspond to increments. They must be modular at the file system level and easily traceable across iterations. Every artefact version is associated with a sprint.
 
-Operationally, this is ensured by: sprint artefacts in `docs/sprints/sprint-NN/` (Section 12 — Artefact Storage Conventions), git branches per sprint and per task (Section 10 — Version Control Strategy), and YAML frontmatter with sprint number on every artefact (Section 12.2 — Frontmatter).
+Operationally, this is ensured by: sprint artefacts in `docs/sprints/sprint-NN/` (Section 12 — Artefact Storage Conventions), git branches per sprint and per task (Section 10 — Version Control Strategy), and YAML frontmatter with sprint number on every artefact (Section 12.2 — Artefact Metadata).
 
 ### P2 — Agile Terminology
 All terminology is inherited from the agile engineering methods domain (sprints, backlogs, user stories, etc.). See the Glossary (Section 16) for all defined terms. *Definitional principle — no runtime agent obligation; operationalized by §16 Glossary (see the §2 intro taxonomy).*
@@ -593,7 +593,7 @@ Each TASK carries an `artefact_type` indicating what kind of deliverable it prod
 | `implements` | "I realize..." | Code implements DES; a sprint tests doc covers [REQ, DES] (doc-level rollup) |
 | `validates` | "I validate..." | TST validates a REQ acceptance criterion (validation tests) |
 | `enforces` | "I enforce..." | Policy TST enforces a DEC or a design structural rule |
-| `tested_by` | "I am verified by..." | REQ/DES points back at its TST (inverse link, see §12.2 — Frontmatter) |
+| `tested_by` | "I am verified by..." | REQ/DES points back at its TST (inverse link, see §12.2 — Artefact Metadata) |
 | `decided_by` | "This choice is justified by..." | DES justified by DEC |
 | `related_to` | "Related to..." | Catch-all for informational links |
 
@@ -741,7 +741,7 @@ Examples:
 | `/gse:collect` | "I'll look at what we have" |
 | `/gse:assess` | "I'll figure out what's missing" |
 | `/gse:plan` | "I'll organize the work" |
-| `/gse:reqs` | "I'll write down what the app should do and ask you to confirm" |
+| `/gse:reqs` | "I'll first understand what you need, then write down what the app should do and ask you to confirm" |
 | `/gse:design` | "I'll decide how to structure the app" |
 | `/gse:tests --strategy` | "I'll describe how we'll verify each feature works" |
 | `/gse:produce` | "I'll build it" |
@@ -767,7 +767,7 @@ To prevent this, each sprint has a **complexity budget** — a finite number of 
 
 **Definition of a complexity point.** One point measures **coupled effort and complexity for the AI + user pair** — the three tightly-linked factors a unit of work adds to the project: (1) code complexity added (maintenance risk, coupling), (2) AI generation effort (production + iteration), (3) human review effort (reading, validation, decisions). Because these factors are entangled in practice — complex code takes longer to generate AND requires more review AND raises future maintenance — a single scalar captures them adequately.
 
-**Temporal anchor (indicative).** As a ballpark calibration: **1 point ≈ 1 pair-session hour** — one focused hour of AI generation + user review. A 10-point sprint therefore ≈ 1-3 working days of AI + user sessions. Solo human equivalent (without AI): 1 point ≈ 0.5-1 working day (speedup ratio typically 10×, varying 5-20× by domain: 15-20× on CRUD-standard work, 5-10× on unfamiliar-domain learning, 3-5× on algorithmic or research problems). The anchor is **indicative, not prescriptive** — spec §2 "Sprint = complexity-boxed, no fixed duration" is preserved. The ballpark helps users sense the size of their commitments; it is not a deadline.
+**Temporal anchor (indicative).** As a ballpark calibration: **1 point ≈ 1 pair-session hour** — one focused hour of AI generation + user review. A 10-point sprint therefore ≈ 1-3 working days of AI + user sessions. Solo human equivalent (without AI): 1 point ≈ 0.5-1 working day (speedup ratio typically 10×, varying 5-20× by domain: 15-20× on CRUD-standard work, 5-10× on unfamiliar-domain learning, 3-5× on algorithmic or research problems). The anchor is **indicative, not prescriptive** — §1.2 — Agile Software Engineering Foundations (sprint adaptation table) "Sprint = complexity-boxed, no fixed duration" is preserved. The ballpark helps users sense the size of their commitments; it is not a deadline.
 
 Every planned task consumes points based on what it introduces (a new dependency costs 1–2 points, an architectural change costs 3–5). The agent tracks the running total and makes it visible throughout the sprint (see Section 8).
 
@@ -803,7 +803,7 @@ GSE-One uses two categories of automated behaviors: **system hooks** (determinis
 
 #### System hooks
 
-System hooks are reserved for actions where deterministic enforcement is critical — the risk of the AI forgetting or adapting incorrectly is too high. They are implemented uniformly across the three supported platforms: as `PreToolUse`/`PostToolUse` command hooks on Claude Code and Cursor, and as a native TypeScript plugin (`tool.execute.before/after` handlers in `plugins/gse-guardrails.ts`) on opencode. The underlying hook logic is shared — each platform receives the transport format it understands; the transpilation is performed at generation time by `gse_generate.py`:
+System hooks are reserved for actions where deterministic enforcement is critical — the risk of the AI forgetting or adapting incorrectly is too high. They are implemented uniformly across the three primary platforms: as `PreToolUse`/`PostToolUse` command hooks on Claude Code and Cursor, and as a native TypeScript plugin (`tool.execute.before/after` handlers in `plugins/gse-guardrails.ts`) on opencode. The underlying hook logic is shared — each platform receives the transport format it understands; the transpilation is performed at generation time by `gse_generate.py`. The same guardrail logic is also transpiled at generation time to Codex CLI and Gemini CLI hook JSON (secondary targets, see §1.1 — Coding Agents and Plugin Architecture), with parity asserted by `--verify`:
 
 | Hook | Trigger | Action | Level | Principle Enforced |
 |------|---------|--------|-------|--------------------|
@@ -865,7 +865,7 @@ Proactive proposals use the structured interaction pattern (P4):
 
 **Options:**
 1. Quick overview (5 min) — concise introduction
-2. Deep session (15 min) — worked example + practice exercise
+2. Deep session (15 min) — worked example + practice
 3. Not now — remind me next sprint
 4. Not interested — don't propose this topic again
 5. Discuss — tell me more before I decide
@@ -979,8 +979,6 @@ When the coach proposes a pedagogy topic (axis 1) or when `/gse:learn` presents 
 
 Options 3 and 4 are recorded in `status.yaml → learning_preambles[]` to avoid re-proposing the same topic spuriously. Labels are canonical — implementations (coach.md, learn.md, orchestrator) use this exact wording.
 
-**AI Integrity**
-
 #### Pedagogical ownership map
 
 Four entry points can propose learning content; without an explicit authority rule they compete and over-trigger. Ownership is split as follows:
@@ -993,6 +991,8 @@ Four entry points can propose learning content; without an explicit authority ru
 | Coach axis 1 (pedagogy observation) | **coach.md** — sole writer of `detected_gaps[]` and preamble ledgers | Feeds proposals into the P14 proactive path; never emits directly |
 
 **Arbitration rule:** when two entry points want to speak in the same turn, `coach.md` anti-spam safeguards decide (single authority); the P14 contract governs what any of them may say; an explicit user request via `/gse:learn` always wins.
+
+**AI Integrity**
 
 ### P15 — Agent Fallibility (Self-Awareness)
 
@@ -1060,7 +1060,7 @@ During `/gse:review`, the agent activates a **devil's advocate perspective** on 
 The devil's advocate findings are reported as a separate section in the review, tagged `[AI-INTEGRITY]`:
 
 ```
-RVW-012 [AI-INTEGRITY] [MEDIUM] — Unverified library recommendation
+RVW-012 [MEDIUM] [AI-INTEGRITY] — Unverified library recommendation
   The agent recommended `fastapi-magic-auth` for authentication.
   Verification: this library does not exist on PyPI.
   Fix: replace with `fastapi-users` (verified, 2.3k stars, actively maintained).
@@ -1516,7 +1516,7 @@ The `/gse:tests` activity manages the full testing lifecycle: strategy definitio
 | **Acceptance** | validation | Confirm that a requirement is met from the user's perspective | REQ (acceptance criteria) |
 | **Regression** | both | Ensure that previously fixed bugs don't reappear (verification or validation depending on what regressed) | RVW (past review findings) |
 
-The **Kind** column labels each type against the methodological distinction (see glossary §1.5): **verification** = "build the thing right" (vs DES-), **validation** = "build the right thing" (vs REQ-). Regression is `both` because a regressed bug may concern either side.
+The **Kind** column labels each type against the methodological distinction (see §1.5 — Key Concepts): **verification** = "build the thing right" (vs DES-), **validation** = "build the right thing" (vs REQ-). Regression is `both` because a regressed bug may concern either side.
 
 **Cross-sprint regression detection:** During `/gse:review`, the agent executes the **full test suite** (not just tests for the current TASK) and compares pass/fail counts with the previous sprint's test report (`docs/sprints/sprint-{NN-1}/test-reports/`). Tests that passed in the previous sprint but now fail are flagged as `[REGRESSION]` findings with severity HIGH. This provides automatic cross-sprint regression detection without additional infrastructure — it leverages the accumulated test suite.
 
@@ -1741,7 +1741,7 @@ Reviewing tests happens at **three distinct moments**, each targeting a differen
 
 | Tier | Question answered | When it runs | Activated automatically when | Always available via |
 |------|-------------------|--------------|------------------------------|---------------------|
-| **Strategy review** (tag `[STRATEGY]`) | Is the test approach calibrated correctly? (pyramid, risk coverage, quality-gap coverage, CI integration plan) | At the end of `/gse:tests --strategy`, before the strategy file is finalised | `project.domain` is security-sensitive (auth/crypto/payments) OR `complexity_budget > 15` | `/gse:tests --review-strategy` |
+| **Strategy review** (tag `[STRATEGY]`) | Is the test approach calibrated correctly? (pyramid, risk coverage, quality-gap coverage, CI integration plan) | At the end of `/gse:tests --strategy`, before the strategy file is finalised | `project.domain` is security-sensitive (auth/crypto/payments/PII) OR `complexity_budget > 15` | `/gse:tests --review-strategy` |
 | **TST specs review** (tag `[TST-SPEC]`) | Does each TST- spec encode the right scenario? (exact conditions, boundaries, quality-gap tests) | At the end of `/gse:tests` Step 3 (Write Tests), before production starts | ≥ 1 TST- carries `quality_gap: true` OR the total TST- count ≥ 20 | `/gse:tests --review-specs` |
 | **Implementation review** (tag `[IMPL]`) | Are the written tests meaningful? (assertions, fixtures, edge cases, no tautological tests, regression scan) | During `/gse:review`, after production | Always (systematic step 2e) | — (always runs; no escape-hatch flag) |
 
@@ -1843,7 +1843,7 @@ The git hygiene score (0–10) is computed from:
 
 Every sprint has a complexity budget — a finite capacity for new work. One **complexity point** measures **coupled effort and complexity for the AI + user pair** (see P10 for the full definition): code complexity added + AI generation effort + human review effort, treated as a single scalar because these three factors are entangled in practice.
 
-**Temporal anchor (indicative).** 1 point ≈ 1 pair-session hour (AI generation + user review + decision). A 10-point sprint ≈ 1-3 working days of AI+user sessions. Solo human (without AI) equivalent: 1 point ≈ 0.5-1 working day, speedup ratio typically 10× (range 5-20× depending on domain — CRUD-standard ~15-20×, algorithmic / research problems ~3-5×). This anchor is **indicative, not prescriptive** — spec §2 *"Sprint = complexity-boxed, no fixed duration"* is preserved. The ballpark helps users sense the size of their commitments; it is not a deadline.
+**Temporal anchor (indicative).** 1 point ≈ 1 pair-session hour (AI generation + user review + decision). A 10-point sprint ≈ 1-3 working days of AI+user sessions. Solo human (without AI) equivalent: 1 point ≈ 0.5-1 working day, speedup ratio typically 10× (range 5-20× depending on domain — CRUD-standard ~15-20×, algorithmic / research problems ~3-5×). This anchor is **indicative, not prescriptive** — §1.2 — Agile Software Engineering Foundations (sprint adaptation table) *"Sprint = complexity-boxed, no fixed duration"* is preserved. The ballpark helps users sense the size of their commitments; it is not a deadline.
 
 Each addition to the project has a cost:
 
@@ -1938,7 +1938,7 @@ Guardrails make cost visible and require proportional acknowledgment. Soft guard
 | Guardrail | Trigger | Level |
 |-----------|---------|-------|
 | Unexecuted tests before DELIVER | `/gse:deliver` is invoked while any must-priority REQ's covering TASK has `test_evidence.status` in `{absent, fail, skipped}` (per §12.3 Backlog schema) | **Hard** — block delivery until evidence is `pass`, or the user explicitly reclassifies the TASK (spike / deferred with DEC-) |
-| Unexecuted test strategy | `test-strategy.md` exists and declares a level (unit / integration / e2e) that has never been run during the sprint (no `TCP-` campaign report at `docs/sprints/sprint-NN/test-reports/` covering it) | **Hard** — block delivery, propose `/gse:tests --run --level <level>` |
+| Unexecuted test strategy | `test-strategy.md` exists and declares a level (unit / integration / e2e / policy) that has never been run during the sprint (no `TCP-` campaign report at `docs/sprints/sprint-NN/test-reports/` covering it) | **Hard** — block delivery, propose `/gse:tests --run --level <level>` |
 | Stale test evidence | `test_evidence.timestamp` predates the latest code change in the TASK's feature branch (detected via `git log`) | **Soft** — warn and suggest re-running |
 
 These guardrails are enforced by `/gse:deliver` Step 1.5 — Test Execution Evidence.
@@ -1980,6 +1980,7 @@ main                                              # Always stable, deployable
 | `refactor/` | Structural improvement, no behavior change |
 | `docs/` | Documentation artefact |
 | `test/` | Test-only changes |
+| `chore/` | Configuration / infrastructure work (`artefact_type: config`) |
 
 ### 10.2 Worktree Isolation
 
@@ -2131,6 +2132,9 @@ git tag gse-backup/sprint-03-pre-merge-feat-auth $(git rev-parse gse/sprint-03/i
 
 # Before deleting a branch:
 git tag gse-backup/sprint-03-feat-auth-deleted $(git rev-parse gse/sprint-03/feat/auth)
+
+# Before merging the sprint into main:
+git tag gse-backup/sprint-03-pre-main-merge $(git rev-parse main)
 ```
 
 Safety tags are prefixed `gse-backup/` and retained for 30 days (configurable via `git.backup_retention_days`).
@@ -2138,6 +2142,7 @@ Safety tags are prefixed `gse-backup/` and retained for 30 days (configurable vi
 **Recovery procedures:**
 - **Branch recovery:** `git checkout -b gse/sprint-03/feat/auth gse-backup/sprint-03-feat-auth-deleted`
 - **Merge reversal:** `git checkout gse/sprint-03/integration && git reset --hard gse-backup/sprint-03-pre-merge-feat-auth`
+- **Main-merge reversal:** `git checkout main && git reset --hard gse-backup/sprint-03-pre-main-merge`
 - **State file recovery:** `.gse/` files are committed at the foundational commit (and whenever the user commits them) — `git checkout -- .gse/backlog.yaml` restores the last committed version, which may lag the live state; for uncommitted drift, apply the recovery ladder of §12.7 — Resilience
 
 **Cleanup:** Old backup tags are cleaned up during `/gse:deliver` (delete tags older than `backup_retention_days`).
@@ -2214,7 +2219,7 @@ This log is not shown to the user by default but is available via `/gse:status -
 │   ├── sources.yaml                 # External source registry
 │   ├── decisions.md                 # Decision journal (Inform + Gate tiers)
 │   ├── decisions-auto.log           # Auto-tier decision log (compact)
-│   ├── dashboard.py                 # Dashboard generator script (copied from plugin)
+│   ├── deploy.json                  # Deployment state: infrastructure phases, server, Coolify config (created by /gse:deploy)
 │   ├── backlog-archive.yaml         # Delivered TASKs from past sprints (not auto-loaded)
 │   └── checkpoints/                 # Pause/resume snapshots
 │       └── checkpoint-YYYY-MM-DD-HHMM.yaml
@@ -2390,6 +2395,10 @@ current_sprint: 3
 current_phase: LC02                  # LC00 | LC01 | LC02 | LC03
 # plan approval/state is now tracked in .gse/plan.yaml (field: status)
 
+# Session pause state (set by /gse:pause, cleared by /gse:resume)
+session_paused: false                  # true between /gse:pause and /gse:resume
+pause_checkpoint: ""                   # filename of the active checkpoint (e.g., checkpoint-2026-04-10-1630.yaml)
+
 health:
   score: 6.7
   dimensions:
@@ -2422,6 +2431,18 @@ counters_last_write: ""                # ISO 8601 — last integrity-counter wri
 # Used at closure to compute `git diff --name-status <sha>..HEAD` and detect scope drift
 # Cleared at activity closure; empty when not in a creator activity
 activity_start_sha: ""                 # HEAD SHA at the start of the current creator activity
+
+# P14 coach agent — pedagogy-axis preamble history (respects not-now / not-interested)
+learning_preambles: []                 # list of { topic, offered_at, sprint, response, lrn_ref, timestamp }
+
+# P14 coach agent — inferred-gap ledger (pedagogy axis; reviewed at /gse:compound Axe 3)
+detected_gaps: []                      # list of { concept, source, occurrences, last_seen, addressed_by_lrn }
+
+# Coach agent — profile-calibration axis: drift between declared HUG profile and observed behavior
+profile_drift_signals: {}              # map of { dimension → { observations: int, last_seen, direction, evidence: [] } }
+
+# Coach agent — cross-sprint workflow-axes ledger (axes 2-8; summarized by /gse:compound Axe 2)
+workflow_observations: []              # list of { axis, moment, observation, evidence, severity, timestamp, sprint, summarized: bool }
 
 last_activity: /gse:produce
 last_activity_timestamp: "2026-04-10T14:30:00Z"
@@ -2534,14 +2555,15 @@ When resuming a session, the agent loads state in priority order to stay within 
 
 | Priority | File | Always loaded | Typical size |
 |----------|------|--------------|-------------|
-| 1 | `status.yaml` | Yes | ~20 lines |
-| 2 | `profile.yaml` | Yes | ~30 lines |
-| 3 | `config.yaml` | Yes | ~40 lines |
-| 4 | `backlog.yaml` (current sprint only) | Yes | Variable |
-| 5 | `backlog.yaml` (pool) | On demand | Only when user asks |
-| 6 | `decisions.md` (last 5) | On demand | Only recent decisions |
-| 7 | `sources.yaml` | On demand | Only during COLLECT |
-| 8 | `decisions-auto.log` | Never auto-loaded | Only via `/gse:status --decisions` |
+| 1 | `status.yaml` | Yes | ~100 lines |
+| 2 | `plan.yaml` | When present (absent in Micro mode) | Variable |
+| 3 | `profile.yaml` | Yes | ~30 lines |
+| 4 | `config.yaml` | Yes | ~40 lines |
+| 5 | `backlog.yaml` (current sprint only) | Yes | Variable |
+| 6 | `backlog.yaml` (pool) | On demand | Only when user asks |
+| 7 | `decisions.md` (last 5) | On demand | Only recent decisions |
+| 8 | `sources.yaml` | On demand | Only during COLLECT |
+| 9 | `decisions-auto.log` | Never auto-loaded | Only via `/gse:status --decisions` |
 
 **Total essential context:** ~100-200 lines. The agent must NEVER load all state files at once.
 
@@ -2606,7 +2628,7 @@ Users can customize GSE-One behavior via `.gse/config.yaml`:
 # .gse/config.yaml
 project:
   name: "My Project"
-  domain: "web"                        # 9 canonical values per §3.2.1 — Smart Profile Interview: web | api | cli | data | mobile | embedded | library | scientific | other
+  domain: "web"                        # 9 canonical values per §3.2.1 — HUG Profile Dimensions (Smart interview): web | api | cli | data | mobile | embedded | library | scientific | other
   # Optional: sub-domains for monorepos (calibrates test pyramid per sub-project)
   # sub_domains:
   #   - path: frontend/
@@ -2706,7 +2728,7 @@ testing:
 
 deploy:
   provider: hetzner                    # only supported provider
-  server_type: cax21                   # cax21 | cax31 | cax41
+  server_type: cax21                   # cax11 | cax21 | cax31 | cax41 (see references/hetzner-infrastructure.md §1 for the full catalog)
   datacenter: fsn1                     # fsn1 | nbg1 | hel1
   app_type: auto                       # auto | streamlit | python | node | static | custom
   health_check_timeout: 120            # seconds
@@ -2846,9 +2868,6 @@ Available at any time, outside of phase sequencing:
 | Learning (reactive + proactive) | `/gse:learn` |
 | Session pause / resume | `/gse:pause`, `/gse:resume` |
 | Deployment | `/gse:deploy` |
-| Session pause | `/gse:pause` |
-| Session resume | `/gse:resume` |
-| Ad-hoc task | `/gse:task` |
 
 ### Lifecycle Flow
 
@@ -2957,7 +2976,7 @@ When invoked, `/gse:go` follows this decision tree:
 
 **Exempt activities** (display-only, no state mutation, strict Step fidelity not required): `/gse:status`, `/gse:health`, `/gse:backlog` (display mode), `/gse:audit` (self-verifying).
 
-Applies to all three runtime targets (Claude Code, Cursor, opencode); each exposes its own interactive-question tool — `AskUserQuestion`, `AskQuestion`, and `question` respectively — invoked only when the target activity's source is read verbatim.
+Applies to all five runtime targets (Claude Code, Cursor, opencode, Codex CLI, Gemini CLI). Claude Code, Cursor, and opencode each expose their own interactive-question tool — `AskUserQuestion`, `AskQuestion`, and `question` respectively — invoked only when the target activity's source is read verbatim; Codex CLI and Gemini CLI expose no native interactive-question widget and render every question via the §P4 — Human-in-the-Loop by Default numbered-list text fallback (see Appendix C — Maintainer Guide, Era-bound assumptions registry).
 
 **Step 1 — Detect project state:**
 
@@ -3007,7 +3026,7 @@ Evaluate states **in order** — the first matching row wins.
 | `plan.yaml` exists, `status: draft` | Resume `PLAN` |
 | `plan.yaml.workflow.active == reqs` | Start `REQS` — begins with **conversational elicitation** (Step 0) to capture user intent in natural language, then **test-driven requirements** with testable acceptance criteria (Given/When/Then) and open technical questions, then **quality assurance checklist** (Step 7, ISO 25010 inspired) verifying NFR completeness. **Hard guardrail: PRODUCE MUST NOT start until REQS exist.** |
 | `plan.yaml.workflow.active == design` | Start `DESIGN`. If tasks do not involve architecture decisions, move `design` to `workflow.skipped` and advance to PREVIEW or TESTS. |
-| `plan.yaml.workflow.active == preview` | Start `PREVIEW` — show mockup/prototype for user validation before coding. For CLI/API/data/embedded: `preview` should already be in `workflow.skipped`. |
+| `plan.yaml.workflow.active == preview` | Start `PREVIEW` — show mockup/prototype for user validation before coding. For domains ∉ {web, mobile}: `preview` should already be in `workflow.skipped`. |
 | `plan.yaml.workflow.active == tests` | Start `TESTS --strategy` — define test pyramid: verification tests (from DESIGN) + validation tests (from REQS acceptance criteria). |
 | `plan.yaml.workflow.active == produce`, none in-progress | Start `PRODUCE` on first planned TASK |
 | `plan.yaml.workflow.active == produce`, tasks `in-progress` | Resume `PRODUCE` on current task |
@@ -3016,7 +3035,7 @@ Evaluate states **in order** — the first matching row wins.
 | `plan.yaml.workflow.active == deliver` | Start `DELIVER` (requires REQ→TST coverage AND `test_evidence.status: pass` on all must-priority REQs' covering TASKs — see §9.3.1 Test-Specific Guardrails and `/gse:deliver` Step 1.5 — Test Execution Evidence) |
 | Sprint plan status is *completed* and `/gse:compound` has not run | Start LC03 (`COMPOUND` > `INTEGRATE`) |
 | Sprint plan status is *completed* and `/gse:compound` + `/gse:integrate` are done | Propose next sprint → LC01. The number of the sprint in progress only advances when `/gse:plan --strategic` promotes the successor sprint. Until then, the current sprint remains the delivered one, frozen (see *Sprint Freeze* guardrail). |
-| Sprint stale (> `lifecycle.stale_sprint_sessions` sessions without progress) | Stale detection (Step 3) |
+| Sprint stale (> `lifecycle.stale_sprint_sessions` sessions without progress) | Stale detection (Step 3) — *out-of-band check: evaluated on every invocation (per `/gse:go` Step 4 — Stale Sprint Detection), not as a row in the first-match-wins order above* |
 
 **Lifecycle guardrails (mode-differentiated):**
 1. **No PRODUCE without REQS (Full and Lightweight)** — No TASK can move to `in-progress` unless at least one REQ- artefact with testable acceptance criteria is traced to it. In Full mode, the quality assurance checklist (Step 7) must also have been run. REQS is test-driven: acceptance criteria ARE the future validation test specs. **Exception:** Micro mode and `artefact_type: spike`.
@@ -3123,7 +3142,7 @@ Inline guardrails enforce discipline at critical moments (e.g., `/gse:deliver` S
 
 The audit has two layers:
 
-- **Deterministic layer** — a Python tool (`plugin/tools/project-audit.py`) runs a fixed set of checks on project state: dashboard freshness, test evidence presence, file format compliance, workflow coherence, git state, sprint freeze, intent artefact, backlog traces, coach observations, open-questions resolution. Output: structured findings (`AUD-NNN [SEVERITY] — title`). Fast, reproducible, no LLM cost.
+- **Deterministic layer** — a Python tool (`plugin/tools/project-audit.py`) runs a fixed set of checks on project state — see §15.6 — Pre-release scope (Phase 1) for the canonical check enumeration. Output: structured findings (`AUD-NNN [SEVERITY] — title`). Fast, reproducible, no LLM cost.
 - **Semantic layer** (Phase 2, deferred) — a sub-agent (`project-reviewer`, Reviewer archetype) reviews qualitative drift: P9 Adaptive Communication jargon compliance, P14 Knowledge Transfer learning delivery, REQ/DESIGN coherence, root-cause discipline application. Complements the deterministic layer. Ships after Phase 1 stabilizes.
 
 Both layers produce findings with the `AUD-` prefix (§P6) and the canonical severity scale HIGH / MEDIUM / LOW (CRITICAL reserved for P15 escalation cases).
@@ -3163,7 +3182,7 @@ If you are new to GSE-One, these 20 concepts form the minimum vocabulary to get 
 
 | # | Concept | One-line summary |
 |---|---------|-----------------|
-| 1 | **Sprint** | A time-boxed work cycle with a complexity budget |
+| 1 | **Sprint** | A complexity-boxed work cycle — ends when its point budget is consumed, not by calendar |
 | 2 | **Backlog** | The list of all work items (TASKs), planned or not |
 | 3 | **TASK** | A single work item in the backlog, tracked from creation to delivery |
 | 4 | **Artefact** | Any project file — code, requirements, design, tests, config |
@@ -3182,7 +3201,7 @@ If you are new to GSE-One, these 20 concepts form the minimum vocabulary to get 
 | 17 | **Complexity budget** | A point-based limit on the total work a sprint can absorb. One point measures **coupled effort + complexity for the AI + user pair** (code complexity added + AI generation + human review). Indicative temporal anchor: 1 pt ≈ 1 pair-session hour; 10-pt sprint ≈ 1-3 working days |
 | 18 | **Confidence level** | How certain the agent is about a claim: Verified, High, Moderate, or Low |
 | 19 | **HUG** | The profiling activity that teaches the agent who you are and how to work with you |
-| 20 | **Spike** | A time-boxed experiment to answer a technical question — code is thrown away |
+| 20 | **Spike** | A complexity-boxed experiment (max 3 points) to answer a technical question — code is thrown away |
 
 ### Full Glossary
 
@@ -3246,7 +3265,7 @@ If you are new to GSE-One, these 20 concepts form the minimum vocabulary to get 
 | **Activity-entry scan** | Transversal rule (spec P6) executed at the first step of `/gse:assess`, `/gse:plan`, `/gse:reqs`, `/gse:design`. The agent walks the project's intent artefact and all active-sprint artefacts for pending Open Questions (`OQ-`) whose `resolves_in` matches the current activity. If ≥ 1 match, the activity enters the **Open Questions Gate** before proceeding. Gate behavior is calibrated by the user's `decision_involvement` profile field: `autonomous` (agent pre-answers, Gate only for high-impact questions), `collaborative` (Gate with agent-proposed answer + rationale), `supervised` (neutral Gate, no pre-answer). |
 | **Supervised mode** | When `decision_involvement: supervised` in the profile, ALL technical choices during PRODUCE are escalated to Gate-tier decisions — the agent presents options and waits for confirmation |
 | **Micro mode** | Minimal lifecycle for trivial projects (scripts, one-off tasks): `PRODUCE` > `DELIVER`, direct commit, 1 state file, no REQS/TESTS guardrails, no health tracking. Selected by complexity assessment, not file count |
-| **Complexity assessment** | Structural analysis performed by the orchestrator during `/gse:go` to recommend a project mode (Micro/Lightweight/Full). Scans 7 structural complexity signals: (1) dependencies (direct dep count from manifests), (2) persistence (ORM, SQL, DB config), (3) entry points (routes, CLI commands), (4) multi-component (multiple manifests, monorepo), (5) existing tests (test directories/files), (6) CI/CD (workflow files, Docker), (7) git maturity (commits, branches, contributors). Source file count is not a complexity signal — it is used only as a trivialiy pre-filter for Micro mode detection. Presented as a Gate decision — the user confirms or overrides |
+| **Complexity assessment** | Structural analysis performed by the orchestrator during `/gse:go` to recommend a project mode (Micro/Lightweight/Full). Scans 7 structural complexity signals: (1) dependencies (direct dep count from manifests), (2) persistence (ORM, SQL, DB config), (3) entry points (routes, CLI commands), (4) multi-component (multiple manifests, monorepo), (5) existing tests (test directories/files), (6) CI/CD (workflow files, Docker), (7) git maturity (commits, branches, contributors). Source file count is not a complexity signal — it is used only as a triviality pre-filter for Micro mode detection. Presented as a Gate decision — the user confirms or overrides |
 | **Stale sprint** | A sprint where no TASK has progressed for more than `lifecycle.stale_sprint_sessions` sessions (default: 3). Triggers a Gate decision: resume, partial delivery, discard, or discuss |
 | **Design debt** | Health sub-dimension measuring accumulated design-level issues. Computed from review findings with the architect perspective: 10 − (HIGH × 2.0 + MEDIUM × 1.0 + LOW × 0.5), floor 0 |
 | **Regression test** | A test verifying that previously passing functionality still works after new changes. During `/gse:review`, the full test suite is compared against the previous sprint's results — newly failing tests are flagged `[REGRESSION]` with severity HIGH |
@@ -3327,7 +3346,7 @@ The constants below are NOT methodological choices — they are snapshots of the
 
 | Era-bound constant | Where it lives | Why it is time-bound | Likely evolution |
 |---|---|---|---|
-| Sub-agent parallelism "up to 8" | spec §1.1.1 execution loop; orchestrator Context Architecture | Current runtime concurrency limits | Higher caps or dynamic scheduling |
+| Sub-agent parallelism "up to 8" | spec §1.1.1 execution loop; orchestrator Context Architecture; review.md Step 2 — Parallel Review via Sub-agents | Current runtime concurrency limits | Higher caps or dynamic scheduling |
 | Cursor ≥2.4 for `AskQuestion` | spec §P4; orchestrator P4 bullet | Version gate of one platform feature | Becomes universal, gate removable |
 | Interactive tool names (`AskUserQuestion` / `AskQuestion` / `question`) | spec §P4; orchestrator P4 bullet | Vendor API naming | Renames; the abstract `AskUser` alias is the stable layer |
 | Interactive tool limit "≤4-5 options" | spec §P4 | Current widget UX caps | Larger or scrollable widgets |
@@ -3361,7 +3380,7 @@ src/agents/gse-orchestrator.md     ← Agent context (routing + global rules)
   ↓ (activities implemented as)
 src/activities/*.md                ← Skill files (execution details)
   ↓ (generated into)
-plugin/                            ← Deployable plugin (Claude Code + Cursor + opencode)
+plugin/                            ← Deployable plugin (Claude Code + Cursor + opencode; experimental: Codex CLI + Gemini CLI)
 ```
 
 ### Discipline: what goes where

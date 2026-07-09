@@ -24,11 +24,9 @@ Every artefact receives a unique identifier upon creation. These identifiers are
    | `SRC-` | External source | SRC-001, SRC-003 |
    | `LRN-` | Learning note | LRN-001, LRN-012 |
 
-2. **ID uniqueness** — IDs are unique within the project scope. The agent maintains a counter per prefix. IDs are NEVER recycled. If REQ-005 is deprecated, the next requirement is REQ-006 (or whatever the next unused number is), never REQ-005 again.
+2. **ID uniqueness** — IDs are unique within the project scope. The agent maintains a counter per prefix. IDs are NEVER recycled. If REQ-005 is deprecated, the next requirement is REQ-006 (or whatever the next unused number is), never REQ-005 again. There is no separate ID registry file: existing IDs are enumerated from `.gse/backlog.yaml` and artefact frontmatter, and surfaced by the dashboard.
 
-3. **ID registry** — The agent maintains an ID registry at `docs/id-registry.md` (or `.yaml`) that maps each allocated ID to its file path and status. This is the authoritative source for "what IDs exist."
-
-4. **Trace link types** — Four typed link categories are used in frontmatter:
+3. **Trace link types** — Four typed link categories are used in frontmatter:
 
    | Link type | Meaning | Example |
    |-----------|---------|---------|
@@ -52,7 +50,7 @@ Every artefact receives a unique identifier upon creation. These identifiers are
      derives_from: [REQ-007]
    ```
 
-5. **Bidirectional consistency** — Trace links imply a reverse relationship. If artefact A says `implements: [REQ-007]`, then REQ-007 is implemented by A. The agent MUST maintain bidirectional consistency when creating or updating trace links.
+4. **Bidirectional consistency** — Trace links imply a reverse relationship. If artefact A says `implements: [REQ-007]`, then REQ-007 is implemented by A. The agent MUST maintain bidirectional consistency when creating or updating trace links.
 
    | If A says... | Then B should reference A via... |
    |-------------|--------------------------------|
@@ -61,18 +59,18 @@ Every artefact receives a unique identifier upon creation. These identifiers are
    | `decided_by: [B]` | B justifies A |
    | `related_to: [B]` | B is related to A |
 
-6. **artefact_type field** — Every artefact's frontmatter MUST include an `artefact_type` field with one of: `code`, `requirement`, `design`, `test`, `doc`, `config`, `decision`, `task`, `review`, `learning`, `import`.
+5. **artefact_type field** — Every artefact's frontmatter MUST include an `artefact_type` field with one of: `code`, `requirement`, `design`, `test`, `doc`, `config`, `decision`, `task`, `review`, `learning`, `import`.
 
-7. **Impact analysis** — Before modifying any artefact, the agent MUST check its trace links to identify potentially impacted artefacts. If impacts are found, they are reported to the human:
+6. **Impact analysis** — Before modifying any artefact, the agent MUST check its trace links to identify potentially impacted artefacts. If impacts are found, they are reported to the human:
    ```
    Agent: Modifying REQ-012 will impact:
    - DES-007 (implements REQ-012)
    - TST-030, TST-031 (test REQ-012)
-   - SRC-015 (source implementing DES-007)
+   - src/auth/service.py (code implementing DES-007)
    Shall I proceed and update the impacted artefacts?
    ```
 
-8. **Coverage analysis** — The agent can generate coverage reports on request:
+7. **Coverage analysis** — The agent can generate coverage reports on request:
    - Requirements without tests
    - Designs without implementations
    - Decisions without traceability to requirements
@@ -94,15 +92,4 @@ traces:
   derives_from: [REQ-010, REQ-011, REQ-012]
   decided_by: [DEC-003]
 ---
-```
-
-**ID registry excerpt:**
-```markdown
-| ID       | File                                    | Status     | Sprint |
-|----------|-----------------------------------------|------------|--------|
-| REQ-001  | docs/requirements/REQ-001-login.md      | done       | 1      |
-| REQ-002  | docs/requirements/REQ-002-logout.md     | done       | 1      |
-| REQ-003  | docs/requirements/REQ-003-register.md   | deprecated | 2      |
-| DES-001  | docs/design/DES-001-architecture.md     | done       | 1      |
-| TASK-001 | .gse/plan.yaml (tasks[]) + .gse/backlog.yaml | done       | 1      |
 ```
