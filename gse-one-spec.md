@@ -1035,6 +1035,10 @@ When the agent teaches (P14) or recommends a practice, it cites its sources when
 
 This allows the user to **check independently** and reduces the false authority that fluent AI-generated prose creates.
 
+#### Confidence escalation
+
+A **Moderate** or **Low** confidence claim on a **critical point** — architecture, security, data model, dependency choice, or any claim whose incorrectness would cause significant rework — MUST be escalated to a **Gate** interaction (P4): the agent presents the claim with its confidence level and independent-verification checkpoints, and waits for the user's decision before proceeding. Low-stakes claims keep their inline confidence tag without interrupting the flow. This rule is enforced by the orchestrator (Core Principles — P15 Escalation) and detailed with a worked example in the P15 principle file.
+
 **"Verified but wrong" escalation (CRITICAL).** When a claim previously tagged *Verified* turns out to be false, the corresponding review finding is escalated to severity **CRITICAL** at review merge time — false certainty is the most dangerous failure mode, and this escalation is the **only** path by which any reviewer finding reaches CRITICAL (baseline reviewer severities remain HIGH / MEDIUM / LOW, per §6.5 — Test Review Layering). The escalation is performed by the devil's advocate integration in `/gse:review` (see `plugin/agents/devil-advocate.md` — Integration with P15 Confidence Signaling, and design §5.11 — Devil's Advocate Agent).
 
 #### State integrity under tool failure
