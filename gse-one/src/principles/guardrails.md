@@ -59,7 +59,7 @@ Guardrails operate at three severity levels. Soft guardrails advise. Hard guardr
    | Skipping tests for modified code | Soft | Warn. Suggest adding tests. |
    | No commit for >30 minutes of active work | Soft | Suggest checkpoint commit. |
 
-4. **HUG expertise calibration:**
+5. **HUG expertise calibration:**
 
    - **Beginner profile:**
      - All Soft guardrails are active
@@ -75,9 +75,9 @@ Guardrails operate at three severity levels. Soft guardrails advise. Hard guardr
      - Hard guardrails still active but with briefer explanations
      - Expert can pre-approve certain Hard guardrail overrides in HUG profile
 
-5. **Emergency guardrails are immutable** — Regardless of expertise level, Emergency guardrails ALWAYS trigger with full explanation. An expert is just as capable of accidentally force-pushing to main as a beginner. The consequences are identical.
+6. **Emergency guardrails are immutable** — Regardless of expertise level, Emergency guardrails ALWAYS trigger with full explanation. An expert is just as capable of accidentally force-pushing to main as a beginner. The consequences are identical.
 
-6. **Guardrail override logging** — Every guardrail override (Soft or Hard) is logged:
+7. **Guardrail override logging** — Every guardrail override (Soft or Hard) is logged:
    ```yaml
    guardrail_override:
      level: hard
@@ -87,7 +87,6 @@ Guardrails operate at three severity levels. Soft guardrails advise. Hard guardr
      timestamp: 2026-02-10T14:32:00
    ```
 
-7. **Custom guardrails** — The project can define custom guardrails in `config/guardrails.yaml`. These are loaded at project initialization and enforced alongside the default guardrails.
 
 ## Examples
 
