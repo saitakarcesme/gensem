@@ -2757,12 +2757,13 @@ lifecycle:
   mode: micro | lightweight | full     # auto-detected, user can override
 ```
 
-**Auto-detection:** The orchestrator scans structural signals (package manifests, persistence, entry points, multi-component structure, CI/CD, git maturity, test presence) and recommends a mode based on project complexity — not file count. The recommendation is presented as a Gate decision — the user confirms or overrides. See Section 14.3 Step 6 for the full assessment protocol.
+**Auto-detection:** The orchestrator scans structural signals (dependencies, persistence, entry points, multi-component structure, existing tests, CI/CD, git maturity) and recommends a mode based on project complexity — not file count. The recommendation is presented as a Gate decision — the user confirms or overrides. See Section 14.3 Step 6 for the full assessment protocol.
 
-Complexity-to-mode mapping:
-- **Micro** — No manifest, no git history, ≤ 2 source files. Scripts, one-off tasks.
-- **Lightweight** — Simple project: few dependencies, single component, no persistence, no CI.
+Complexity-to-mode mapping (first match wins):
+- **Micro** — Triviality pre-filter: no manifest, no git history, ≤ 2 source files. Scripts, one-off tasks.
 - **Full** — Complex project: persistence, multi-component, CI/CD, >10 dependencies, or >10 entry points.
+- **Full** — Existing tests AND (dependencies > 3 OR entry points > 3).
+- **Lightweight** — Otherwise: few dependencies, single component, no persistence, no CI.
 
 Upgrading from Micro → Lightweight → Full is possible at any time via `/gse:go` — the agent scaffolds the missing structure.
 
@@ -3101,19 +3102,21 @@ Triggered by Step 2's "No sprint" branches (greenfield after Intent Capture, or 
 
 | Signal | What is scanned | Weight |
 |--------|-----------------|--------|
-| Package manifest | `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc. | present / absent |
+| Dependencies | Direct dependencies declared in the package manifest (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, etc.) | count |
 | Persistence | DB config, schema files, migrations, ORM usage | present / absent |
 | Entry points | `main()`, CLI commands, HTTP routes | count |
-| Multi-component | Top-level subdirs suggesting separate modules | count |
+| Multi-component | Top-level subdirs suggesting separate modules, workspace configs | count |
+| Existing tests | `tests/`, `*.test.*`, `*_test.py` | present / absent |
 | CI/CD | `.github/workflows/`, `.gitlab-ci.yml`, `Jenkinsfile` | present / absent |
 | Git maturity | Commit count, branch count, co-author count | count |
-| Test presence | `tests/`, `*.test.*`, `*_test.py` | count |
-| Dependencies | Total declared dependencies (dev + runtime) | count |
 
-Mapping (see §13.2 for the detailed Full / Lightweight / Micro matrix):
-- **Micro** — No manifest, no git history, ≤ 2 source files. Scripts, one-off tasks.
-- **Lightweight** — Few dependencies, single component, no persistence, no CI.
+Source file count and manifest absence are **not** complexity signals — they serve only as the **Micro-mode triviality pre-filter** (no manifest AND no git history AND ≤ 2 source files → Micro, evaluated before the signals above).
+
+Mapping (first match wins; see §13.2 for the detailed Full / Lightweight / Micro matrix):
+- **Micro** — Triviality pre-filter matches (no manifest, no git history, ≤ 2 source files). Scripts, one-off tasks.
 - **Full** — Persistence, multi-component, CI/CD, > 10 dependencies, or > 10 entry points.
+- **Full** — Existing tests AND (dependencies > 3 OR entry points > 3).
+- **Lightweight** — Otherwise (few dependencies, single component, no persistence, no CI).
 
 The recommendation is presented as a **Gate decision**:
 
