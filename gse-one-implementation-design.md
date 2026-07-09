@@ -1330,7 +1330,7 @@ Cleanup: delete backup tags older than `git.backup_retention_days` during delive
 
 **Guardrail 3 — Stale test evidence (Soft).** Warns when `test_evidence.timestamp` predates the latest feature-branch commit (detected via `git log`). Non-blocking — the user may proceed with a note in DEC- or re-run tests at their discretion.
 
-### 5.16 State Schemas
+### 5.16 State Schemas & Design Mechanics
 
 **status.yaml schema (spec §12.4):**
 ```yaml
