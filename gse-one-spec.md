@@ -2832,7 +2832,7 @@ GSE-One can be used for documentation, research, or configuration projects by di
 ```yaml
 # .gse/config.yaml for a documentation project
 project:
-  domain: "documentation"
+  domain: "other"                # documentation project — no dedicated enum value; "other" is the catch-all per §3.2.1 — HUG Profile Dimensions
 
 lifecycle:
   phases:
