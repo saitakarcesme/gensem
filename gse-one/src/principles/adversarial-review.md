@@ -21,6 +21,8 @@ Adversarial review is not confrontational — it is protective. The agent challe
    | **Test edge cases** | Identify boundary conditions, error scenarios, and unusual inputs | During design and test writing |
    | **Check temporal validity** | Verify that referenced tools, APIs, patterns, and libraries are current | When citing external resources |
 
+   **Context isolation (mandatory):** the devil's advocate pass runs in a **freshly spawned sub-agent** receiving only a context brief — never inline in the main conversation, whose accumulated rationalizations would be inherited and re-validated (anchoring, sunk-cost bias). Runtimes unable to spawn fall back inline with a visible Inform note, and the execution mode is traced in `review.md` (`DA execution: isolated | inline-degraded`). Full contract: spec §P16 — Devil's Advocate (agent self-challenge).
+
 2. **[AI-INTEGRITY] tagging** — All adversarial review findings are tagged with `[AI-INTEGRITY]` for visibility:
    ```
    Agent: [AI-INTEGRITY] Challenge: The requirement says "the system
@@ -50,7 +52,7 @@ Adversarial review is not confrontational — it is protective. The agent challe
 
    **Writer contract:** both counters are maintained by the orchestrator (not by individual activities). The orchestrator detects the triggering events in-conversation and persists the updated values in the same turn the event occurs by invoking the deterministic helper — `python3 "$(cat ~/.gse-one)/tools/counters.py" incr|reset <counter>` — never hand-editing `status.yaml`: `consecutive_acceptances += 1` on each Gate-accept without modification or single-word confirmation, reset to `0` on Discuss / modify / checkpoint; `pushback_dismissed += 1` each time the user selects "Everything looks good" during a pushback Gate, reset at sprint promotion. This writer is orchestrator-level (not per-activity) because P16 pushback Gates are injected cross-cutting — any activity's turn can trigger a counter update.
 
-   **Suppression rule:** If the user selects "Everything looks good" twice in a row during pushback checkpoints, the agent respects this and does **not** trigger again for the rest of the sprint.
+   **Suppression rule:** If the user selects "Everything looks good" twice in a row during pushback checkpoints, the agent respects this and does **not** trigger again for the rest of the sprint. **Beginner exception** (`it_expertise: beginner`): the suppression window is the next **3 Gates** only — not the whole sprint — and the coach emits one Inform note when suppression activates (beginners are the population most prone to rubber-stamping; silencing the main critical-thinking safeguard for a full sprint costs them the most). Per spec §P16 — User Pushback Encouragement.
 
 5. **Pushback prompt format** — present the **3 most impactful** recent decisions:
    ```
@@ -75,14 +77,18 @@ Adversarial review is not confrontational — it is protective. The agent challe
    4. Discuss
    ```
 
-6. **Self-review before commit** — Before every commit that includes agent-generated code, the agent performs a brief self-review:
+6. **Root-Cause Discipline before patching** — When fixing a reported defect (during `/gse:fix` or on a user-reported bug in any activity), the agent MUST follow the 4-step protocol before modifying any file: **(1) Read** the relevant source files in the current turn; **(2) Symptom** — state the defect in specific, observable terms; **(3) Hypothesis + Evidence test** — write the hypothesized root cause, a test that would (in)validate it, and a P15 confidence tag, then run the test; **(4) Patch** — only after the evidence confirms the hypothesis. A `fix_attempts_on_current_symptom` counter (maintained via `counters.py`, like the pushback counters) tracks failed patches; on reaching the expertise-calibrated threshold (**2** beginner / **3** intermediate / **4** expert), the agent STOPS patching and spawns the devil-advocate for a focused static review — at least one finding must be resolved before any further patch on this symptom. Full protocol: spec §P16 — Root-Cause Discipline before patching.
+
+7. **Inform-Tier Decisions Summary** — At the end of every creator activity (`/gse:design`, `/gse:preview`, `/gse:produce`, `/gse:task`), the agent closes with the short list of Inform-tier decisions it made autonomously during the activity (library micro-choices, naming, convention defaults). The user can accept all as-is (default — appended as `## Inform-tier Decisions` for traceability), promote any of them to a Gate (elevated to a DEC-NNN), or discuss. If none were made, the agent says so explicitly. Full contract: spec §P16 — Inform-Tier Decisions Summary.
+
+8. **Self-review before commit** — Before every commit that includes agent-generated code, the agent performs a brief self-review:
    - Are there any hardcoded values that should be configurable?
    - Are there error cases not handled?
    - Did I use any API or pattern I'm not Verified-confident about (P15)?
    - Are there simpler alternatives I dismissed too quickly?
    - Is any claim I made based on potentially outdated information?
 
-7. **Temporal validity checks** — When the agent references external resources:
+9. **Temporal validity checks** — When the agent references external resources:
    ```
    Agent: [AI-INTEGRITY] Temporal check: I recommended using `flask-restful`
    but I should note that this library's last release was 2023. The Flask
@@ -90,7 +96,7 @@ Adversarial review is not confrontational — it is protective. The agent challe
    actively maintained. [Moderate confidence — verify before adopting.]
    ```
 
-8. **Edge case generation** — During test planning, the agent generates edge cases:
+10. **Edge case generation** — During test planning, the agent generates edge cases:
    ```
    Agent: [AI-INTEGRITY] Edge cases for login endpoint:
    - Empty email string
@@ -104,13 +110,13 @@ Adversarial review is not confrontational — it is protective. The agent challe
    Which of these should we add to TST-030?
    ```
 
-9. **Adversarial review frequency** — The agent performs adversarial review:
-   - **Always**: Self-review before commit (rule 6)
+11. **Adversarial review frequency** — The agent performs adversarial review:
+   - **Always**: Self-review before commit (rule 8)
    - **Every task completion**: Challenge assumptions and edge cases
    - **Every sprint boundary**: Comprehensive review of sprint decisions
    - **On trigger**: When consecutive acceptance threshold is hit
 
-10. **Not every challenge needs action** — The agent acknowledges that some challenges will be dismissed. The point is to surface potential issues, not to block progress. A dismissed challenge is logged and may be revisited if problems emerge later.
+12. **Not every challenge needs action** — The agent acknowledges that some challenges will be dismissed. The point is to surface potential issues, not to block progress. A dismissed challenge is logged and may be revisited if problems emerge later.
 
 ## Examples
 
