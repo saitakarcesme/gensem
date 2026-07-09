@@ -46,8 +46,9 @@ gse-one/
 ├── src/                                 # Shared source of truth
 │   ├── principles/                      # 16 principle definitions (P1-P16)
 │   ├── activities/                      # 24 activity definitions
-│   ├── agents/                          # 11 agent roles (10 specialized + gse-orchestrator)
-│   │   ├── gse-orchestrator.md          # Identity agent — source for both platforms
+│   ├── agents/                          # 12 agent files (10 specialized + gse-orchestrator + gse-orchestrator-lite)
+│   │   ├── gse-orchestrator.md          # Identity agent — full body, source for all platform identities
+│   │   ├── gse-orchestrator-lite.md     # Condensed Identity derivative — Codex AGENTS.md (≤ 32 KiB cap)
 │   │   ├── requirements-analyst.md
 │   │   ├── architect.md
 │   │   ├── test-strategist.md
@@ -58,9 +59,10 @@ gse-one/
 │   │   ├── devil-advocate.md
 │   │   ├── coach.md
 │   │   └── deploy-operator.md
-│   └── templates/                       # 29 templates (MANIFEST.yaml included as self-descriptor)
+│   ├── references/                      # Runtime reference docs (hetzner-infrastructure.md, ssh-operations.md)
+│   └── templates/                       # 29 template files (MANIFEST.yaml included as self-descriptor)
 │
-├── plugin/                              # Single deployable directory (Claude + Cursor + opencode)
+├── plugin/                              # Single deployable directory (Claude + Cursor + opencode; experimental: Codex CLI + Gemini CLI)
 │   ├── .claude-plugin/plugin.json       # Claude Code manifest
 │   ├── .cursor-plugin/plugin.json       # Cursor manifest
 │   ├── skills/                          # 24 skills (shared, `name:` field included)
@@ -73,17 +75,35 @@ gse-one/
 │   │   ├── hooks.claude.json            # Claude Code format
 │   │   └── hooks.cursor.json            # Cursor format
 │   ├── settings.json                    # Claude-only (ignored by Cursor/opencode)
-│   └── opencode/                        # opencode-specific subtree
-│       ├── skills/                      # 24 skills with injected `name:`
-│       ├── commands/                    # 24 gse-<name>.md slash commands
-│       ├── agents/                      # 10 specialized (`mode: subagent`)
-│       ├── plugins/gse-guardrails.ts    # Native TS plugin (transpiled from hooks.claude.json)
-│       ├── AGENTS.md                    # Orchestrator body wrapped in markers
-│       └── opencode.json                # Default permissions + version marker
+│   ├── VERSION                          # One-line version file, distributed to every install target
+│   ├── tools/                           # Hand-maintained Python tools (dashboard, deploy, coolify_client, project-audit, counters)
+│   ├── references/                      # Runtime reference docs (copied from src/references/)
+│   ├── gse-run                          # Generic sandbox launcher (copied to .gse-sandbox/run by install.py)
+│   ├── opencode/                        # opencode-specific subtree
+│   │   ├── skills/                      # 24 skills with injected `name:`
+│   │   ├── commands/                    # 24 gse-<name>.md slash commands
+│   │   ├── agents/                      # 10 specialized (`mode: subagent`)
+│   │   ├── plugins/gse-guardrails.ts    # Native TS plugin (transpiled from the shared hook commands)
+│   │   ├── AGENTS.md                    # Orchestrator body wrapped in markers
+│   │   └── opencode.json                # Default permissions + version marker
+│   ├── codex/                           # Codex CLI subtree (secondary target)
+│   │   ├── AGENTS.md                    # Condensed lite orchestrator (from gse-orchestrator-lite.md, NOT byte-parity)
+│   │   ├── skills/                      # 24 activity skills + gse-orchestrator full-body skill
+│   │   ├── agents/                      # 10 specialized as TOML (developer_instructions)
+│   │   └── hooks/hooks.json             # Transpiled from the shared hook commands
+│   └── gemini/                          # Gemini CLI subtree (secondary target)
+│       ├── GEMINI.md                    # Full orchestrator body (parity-checked with plugin/agents/)
+│       ├── gemini-extension.json        # Extension manifest
+│       ├── commands/gse/                # 24 <name>.toml commands
+│       ├── agents/                      # 10 specialized
+│       └── hooks/hooks.json             # Transpiled from the shared hook commands
 │
 ├── marketplace/
 │   └── .claude-plugin/marketplace.json
 │
+├── tests/                               # Unit tests (generator, hooks, tools)
+├── audit.py                             # Maintainer audit engine (deterministic categories + registry)
+├── audit_catalog.py                     # Audit job catalog loader
 └── gse_generate.py                      # Generator: src/ → plugin/
 ```
 
@@ -2931,12 +2951,18 @@ The `marketplace.json` install path is `"plugin"` (not `"dist/claude"`), reflect
 | 6 | Constants | `plugin/.claude-plugin/plugin.json` + `plugin/.cursor-plugin/plugin.json` + `plugin/opencode/opencode.json` | Three manifests |
 | 7 | Shared shell commands | `plugin/hooks/hooks.claude.json` + `plugin/hooks/hooks.cursor.json` + `plugin/opencode/plugins/gse-guardrails.ts` (transpiled TS) | Same logic, three formats |
 | 8 | — | `plugin/settings.json` | Claude-only |
+| 9 | `src/agents/gse-orchestrator-lite.md` + activities + agents + shared hook commands | `plugin/codex/AGENTS.md` (condensed lite, ≤ 32 KiB) + `plugin/codex/skills/` (24 + full-orchestrator skill) + `plugin/codex/agents/*.toml` + `plugin/codex/hooks/hooks.json` | Codex CLI (secondary target) |
+| 10 | Orchestrator body + activities + agents + shared hook commands | `plugin/gemini/GEMINI.md` (full-body parity) + `plugin/gemini/commands/gse/*.toml` + `plugin/gemini/agents/*.md` + `plugin/gemini/hooks/hooks.json` + `gemini-extension.json` | Gemini CLI (secondary target) |
+| 11 | Root `VERSION` | `plugin/VERSION` | Distributed to every install target |
+| 12 | All deployed artefacts | Registry incantations rewritten to project-local-first form (`_localize_registry_resolution()` — final step) | All platforms uniformly |
 
-The generator's `--verify` flag asserts (a) `plugin/` structure completeness — every expected skill, agent, manifest, hook file is present per §12; (b) body parity between the three orchestrator outputs (`plugin/agents/`, `plugin/rules/gse-orchestrator.mdc`, `plugin/opencode/AGENTS.md`) — fatal on divergence; (c) presence of critical patterns in `gse-guardrails.ts` (transpiled hooks). In addition, `--verify` runs a *warning-level* external-docs consistency check on hand-maintained prose (`README.md`, `install.py`, `gse-one/README.md`) against the source-of-truth registries (`SPECIALIZED_AGENTS`, `ACTIVITY_NAMES`, `src/templates/`, `src/principles/`). External-docs mismatches are non-blocking by design — the authoritative numeric-drift audit lives in `gse-one/audit.py` (invoked via `/gse-meta-audit` or `python3 gse-one/audit.py --fail-on warning`).
+The generator's `--verify` flag asserts (a) `plugin/` structure completeness — every expected skill, agent, manifest, hook file is present per §12; (b) body parity between the four full-body orchestrator outputs (`plugin/agents/gse-orchestrator.md`, `plugin/rules/gse-orchestrator.mdc`, `plugin/opencode/AGENTS.md`, `plugin/gemini/GEMINI.md`) — fatal on divergence — plus the Codex `AGENTS.md` lite-derivation check (condensed from `gse-orchestrator-lite.md`, deliberately NOT byte-parity, per §6.6); (c) presence of critical patterns in `gse-guardrails.ts` (transpiled hooks) and command-content parity for the Codex hooks. In addition, `--verify` runs a *warning-level* external-docs consistency check on hand-maintained prose (`README.md`, `install.py`, `gse-one/README.md`) against the source-of-truth registries (`SPECIALIZED_AGENTS`, `ACTIVITY_NAMES`, `src/templates/`, `src/principles/`). External-docs mismatches are non-blocking by design — the authoritative numeric-drift audit lives in `gse-one/audit.py` (invoked via `/gse-meta-audit` or `python3 gse-one/audit.py --fail-on warning`).
 
 ---
 
 ## 12. File Inventory
+
+> **Scope note (Meta-2):** the table below inventories the **three primary platforms** (Claude Code, Cursor, opencode). Codex CLI and Gemini CLI outputs (secondary targets) are documented in §6.6 and generated by the same pipeline (§11.1 steps 9-10). Exact file counts drift with every template or platform addition — derive current totals from the generator (`python3 gse_generate.py --verify` prints them) rather than from this table.
 
 | Category | Shared | Claude-only | Cursor-only | opencode-only | Source |
 |----------|--------|-------------|-------------|---------------|--------|
@@ -2951,7 +2977,6 @@ The generator's `--verify` flag asserts (a) `plugin/` structure completeness —
 | AGENTS.md | — | — | — | 1 (from orchestrator) | from orchestrator |
 | **Total** | **64** | **3** | **27** | **61** | **64 sources** |
 
-Grand total: **155 files**. Generator: ~900 lines.
 
 ---
 
