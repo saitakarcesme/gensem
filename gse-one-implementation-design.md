@@ -2729,19 +2729,22 @@ The body-parity contract (§6.4) extends to `plugin/gemini/GEMINI.md` (identical
 
 ## 7. Hooks Design
 
-GSE-One implements **3 system hooks** (spec P13 — Event-Driven Behaviors) — deterministic, rigid checks where the risk of the AI forgetting is too high. The hook tier assigned to each check (Soft / Hard / Emergency) derives from the **P11 guardrail taxonomy** defined in spec §P11 — Guardrails: Soft warns without blocking, Hard blocks until documented rationale, Emergency halts until explicit risk acknowledgment. All hook commands use cross-platform Python (`python3 -c`). The commands are defined as shared constants in the generator and emitted in platform-specific JSON wrappers.
+GSE-One implements **3 guardrail system hooks** (spec P13 — Event-Driven Behaviors) — deterministic, rigid checks where the risk of the AI forgetting is too high — **plus 1 regeneration hook** (`post_dashboard`, dashboard sync on state-file edits; a maintenance automation outside the P13 guardrail trio). The hook tier assigned to each guardrail check (Soft / Hard / Emergency) derives from the **P11 guardrail taxonomy** defined in spec §P11 — Guardrails: Soft warns without blocking, Hard blocks until documented rationale, Emergency halts until explicit risk acknowledgment. All hook commands use cross-platform Python (`python3 -c`). The commands are defined as shared constants in `_guardrail_commands()` in `gse_generate.py` — the **single source of truth** — and emitted in platform-specific JSON wrappers at generation time.
 
 | Hook | Event | Matcher | Level | Exit |
 |------|-------|---------|-------|------|
 | Protect main | PreToolUse | Bash | Hard | 2 (block) |
 | Block force-push | PreToolUse | Bash | Emergency | 2 (block) |
 | Review findings on push | PostToolUse | Bash | Soft (warn-only) | 0 (warn) |
+| Dashboard regeneration (`post_dashboard`) | PostToolUse | Edit / Write / MultiEdit | N/A (maintenance, not a guardrail) | 0 |
 
 Blocking hooks (exit 2) write to **stderr** so the agent receives the feedback. Soft warn-only hooks (exit 0) write to **stdout**.
 
+> **Note — command strings are deliberately not reproduced in §7.1/§7.2.** The sections below show only the platform *wrapper format* (event names, field shapes); the command payloads live exclusively in `_guardrail_commands()`. Earlier editions of this document embedded full command copies, which silently drifted from the generator — the pre-v0.62 copies read a fictional `CLAUDE_TOOL_INPUT` environment variable, the root cause of the v0.62 hooks no-op. The current commands read the tool input from **stdin JSON**, honor the `.gse/config.yaml → hooks` toggles, and cover chained and `git -C` command forms.
+
 ### 7.1 Claude Code: `hooks/hooks.claude.json`
 
-Claude Code uses PascalCase event names (`PreToolUse`, `PostToolUse`) and an explicit `type` field:
+Claude Code uses PascalCase event names (`PreToolUse`, `PostToolUse`) and an explicit `type` field. Format skeleton (command payloads generated from `_guardrail_commands()` — see the §7 note):
 
 ```json
 {
@@ -2750,14 +2753,8 @@ Claude Code uses PascalCase event names (`PreToolUse`, `PostToolUse`) and an exp
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import os,subprocess,sys; t=os.environ.get('CLAUDE_TOOL_INPUT',''); c=t.startswith('git commit'); b=subprocess.run(['git','branch','--show-current'],capture_output=True,text=True).stdout.strip() if c else ''; (c and b=='main') and (print('GUARDRAIL: Direct commit to main detected. Use a feature branch.',file=sys.stderr),sys.exit(2))\""
-          },
-          {
-            "type": "command",
-            "command": "python3 -c \"import os,sys; t=os.environ.get('CLAUDE_TOOL_INPUT',''); t.startswith('git push --force') and (print('EMERGENCY GUARDRAIL: Force push detected. This can cause permanent data loss. Aborting.',file=sys.stderr),sys.exit(2))\""
-          }
+          { "type": "command", "command": "<pre_commit — Protect main (Hard), from _guardrail_commands()>" },
+          { "type": "command", "command": "<pre_force — Block force-push (Emergency), from _guardrail_commands()>" }
         ]
       }
     ],
@@ -2765,10 +2762,13 @@ Claude Code uses PascalCase event names (`PreToolUse`, `PostToolUse`) and an exp
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import os,re; t=os.environ.get('CLAUDE_TOOL_INPUT',''); f=os.path.join('.gse','status.yaml'); c=open(f).read() if t.startswith('git push') and os.path.isfile(f) else ''; m=re.search(r'review_findings_open:\\s*(\\d+)',c); o=int(m.group(1)) if m else 0; (o>0) and print('WARNING: '+str(o)+' open review findings')\""
-          }
+          { "type": "command", "command": "<post_review — Review findings on push (Soft), from _guardrail_commands()>" }
+        ]
+      },
+      {
+        "matcher": "Edit | Write | MultiEdit (one entry per matcher)",
+        "hooks": [
+          { "type": "command", "command": "<post_dashboard — dashboard regeneration, from _guardrail_commands()>" }
         ]
       }
     ]
@@ -2778,7 +2778,7 @@ Claude Code uses PascalCase event names (`PreToolUse`, `PostToolUse`) and an exp
 
 ### 7.2 Cursor: `hooks/hooks.cursor.json`
 
-Cursor uses camelCase event names (`preToolUse`, `postToolUse`), a top-level `version` field, and omits the `type` field (implicit):
+Cursor uses camelCase event names (`preToolUse`, `postToolUse`), a top-level `version` field, and omits the `type` field (implicit). Format skeleton (same command payloads as §7.1, from `_guardrail_commands()`):
 
 ```json
 {
@@ -2788,12 +2788,8 @@ Cursor uses camelCase event names (`preToolUse`, `postToolUse`), a top-level `ve
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "command": "python3 -c \"import os,subprocess,sys; t=os.environ.get('CLAUDE_TOOL_INPUT',''); c=t.startswith('git commit'); b=subprocess.run(['git','branch','--show-current'],capture_output=True,text=True).stdout.strip() if c else ''; (c and b=='main') and (print('GUARDRAIL: Direct commit to main detected. Use a feature branch.',file=sys.stderr),sys.exit(2))\""
-          },
-          {
-            "command": "python3 -c \"import os,sys; t=os.environ.get('CLAUDE_TOOL_INPUT',''); t.startswith('git push --force') and (print('EMERGENCY GUARDRAIL: Force push detected. This can cause permanent data loss. Aborting.',file=sys.stderr),sys.exit(2))\""
-          }
+          { "command": "<pre_commit — Protect main (Hard), from _guardrail_commands()>" },
+          { "command": "<pre_force — Block force-push (Emergency), from _guardrail_commands()>" }
         ]
       }
     ],
@@ -2801,9 +2797,13 @@ Cursor uses camelCase event names (`preToolUse`, `postToolUse`), a top-level `ve
       {
         "matcher": "Bash",
         "hooks": [
-          {
-            "command": "python3 -c \"import os,re; t=os.environ.get('CLAUDE_TOOL_INPUT',''); f=os.path.join('.gse','status.yaml'); c=open(f).read() if t.startswith('git push') and os.path.isfile(f) else ''; m=re.search(r'review_findings_open:\\s*(\\d+)',c); o=int(m.group(1)) if m else 0; (o>0) and print('WARNING: '+str(o)+' open review findings')\""
-          }
+          { "command": "<post_review — Review findings on push (Soft), from _guardrail_commands()>" }
+        ]
+      },
+      {
+        "matcher": "Edit | Write | MultiEdit (one entry per matcher)",
+        "hooks": [
+          { "command": "<post_dashboard — dashboard regeneration, from _guardrail_commands()>" }
         ]
       }
     ]
