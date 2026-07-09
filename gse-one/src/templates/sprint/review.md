@@ -24,6 +24,19 @@ gse:
 
 _CRITICAL is reserved for the P15 "Verified but wrong" escalation at review merge time (see review.md Step 3 — "P15 Confidence Integration (Design 5.11)" subsection). Baseline severity for all reviewer agents is HIGH / MEDIUM / LOW._
 
+## Finding Format
+
+_Each finding in the sections below follows the canonical per-entry format emitted by the reviewer agents (see the Output Format in `plugin/agents/code-reviewer.md`):_
+
+```
+RVW-NNN [SEVERITY] — {title}
+  perspective: {agent role, e.g., code-reviewer}
+  Location: {file, line or range}
+  Code: {offending snippet — when applicable}
+  Detail: {what the problem is and why it matters}
+  Suggestion: {proposed fix}
+```
+
 ## Requirements Findings
 
 _Findings from the Requirements Analyst agent._

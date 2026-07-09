@@ -659,7 +659,7 @@ When invoked with `--destroy`:
 
 6. **Clean up `.env` variables** (only on `status == "ok"`):
    ```
-   for key in SERVER_IP SSH_USER SSH_KEY COOLIFY_URL COOLIFY_API_TOKEN; do
+   for key in SERVER_IP SERVER_UUID SSH_USER SSH_KEY COOLIFY_URL COOLIFY_API_TOKEN COOLIFY_GITHUB_APP_UUID; do
      python3 "$([ -s .gse/registry ] && cat .gse/registry || cat ~/.gse-one)/tools/deploy.py" env-delete "$key"
    done
    ```

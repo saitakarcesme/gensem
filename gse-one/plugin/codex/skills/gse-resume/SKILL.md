@@ -174,13 +174,13 @@ Determine the next action using, in priority order:
 
 | Checkpoint State | Proposed Action |
 |------------------|-----------------|
-| `last_activity: produce`, task in-progress | "Continue producing TASK-{ID}: {title}" → `/gse:produce --task {ID}` |
-| `last_activity: produce`, task done | "All production done. Ready for review." → `/gse:review` |
-| `last_activity: review`, fixes pending | "Review complete, fixes needed." → `/gse:fix` |
-| `last_activity: fix` | "Fixes applied. Ready for delivery." → `/gse:deliver` |
-| `last_activity: deliver` | "Sprint delivered. Time to capitalize." → `/gse:compound` |
-| `last_activity: compound` | "Capitalization done. Ready to integrate." → `/gse:integrate` |
-| `last_activity: pause` (nested) | Unwrap to the activity before the pause |
+| `last_activity: /gse:produce`, task in-progress | "Continue producing TASK-{ID}: {title}" → `/gse:produce --task {ID}` |
+| `last_activity: /gse:produce`, task done | "All production done. Ready for review." → `/gse:review` |
+| `last_activity: /gse:review`, fixes pending | "Review complete, fixes needed." → `/gse:fix` |
+| `last_activity: /gse:fix` | "Fixes applied. Ready for delivery." → `/gse:deliver` |
+| `last_activity: /gse:deliver` | "Sprint delivered. Time to capitalize." → `/gse:compound` |
+| `last_activity: /gse:compound` | "Capitalization done. Ready to integrate." → `/gse:integrate` |
+| `last_activity: /gse:pause` (nested) | Unwrap to the activity before the pause |
 
 Present the proposal and wait for user confirmation.
 

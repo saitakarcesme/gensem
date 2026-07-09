@@ -60,6 +60,7 @@ Focus: does each TST- spec encode the right scenario?
 - [ ] **Trace coherence** — `traces.validates`, `traces.implements` and `traces.enforces` fields point at existing REQ-/DES-/DEC- IDs; bidirectional link is preserved
 - [ ] **Quality-gap TSTs** — Every TST- carrying `quality_gap: true` names the ISO 25010 dimension it closes and a measurable assertion
 - [ ] **Pyramid placement** — Each TST- declares a `level` consistent with the strategy's pyramid plan
+- [ ] **Must-REQ coverage materialized** — Every REQ `priority: must` is validated by at least one drafted TST- (materialized coverage, distinct from the planning-time check in the Strategy checklist)
 
 ### Implementation checklist (tag `[IMPL]`, run during `/gse:review` Step 2e)
 
@@ -72,6 +73,8 @@ Focus: are the written tests meaningful?
 - [ ] **Flaky-test detection** — Intermittent tests are identified, quarantined, or fixed
 - [ ] **Performance baselines** — Critical operations have performance assertions where applicable
 - [ ] **Regression coverage** — Bug fixes include regression tests anchored to the originating RVW-
+- [ ] **Cross-sprint regression scan** — Execute the full test suite (not just the current TASK's tests) and compare pass/fail counts with the previous sprint's test report in `docs/sprints/sprint-{NN-1}/test-reports/`; tests that passed last sprint and now fail → HIGH finding tagged `[REGRESSION]`
+- [ ] **TST- name mapping** — Test names map cleanly to the TST- they implement; if a TST- review finding exists, flag the inconsistency
 - [ ] **Evidence quality** — The resulting `test_evidence` block carries timestamps, pass/fail counts, and coverage
 
 ## Output Format

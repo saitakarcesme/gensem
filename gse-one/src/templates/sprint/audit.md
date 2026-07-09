@@ -1,7 +1,7 @@
 ---
 gse:
   type: audit
-  sprint: {sprint}                       # numeric sprint number (0 if no sprint active)
+  sprint: "{sprint}"                     # numeric sprint number (0 if no sprint active)
   trigger: manual                        # manual | auto-trigger | scheduled
   audit_version: ""                      # from @gse-tool header of project-audit.py
   phase: "Phase 1 deterministic"         # Phase 1 deterministic | Phase 1 + Phase 2 hybrid

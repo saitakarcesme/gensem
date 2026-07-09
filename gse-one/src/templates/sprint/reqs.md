@@ -41,7 +41,7 @@ gse:
 - **Acceptance Criteria:**
   1. {measurable criterion 1}
   2. {measurable criterion 2}
-- **Traces:** implements (—) | tested_by (—)
+- **Traces:** derives_from (—) | tested_by (—)
 
 ## Non-Functional Requirements
 
@@ -95,6 +95,16 @@ _Results of the ISO 25010-inspired quality assurance checklist (Step 7 of `/gse:
 
 ## Open Questions
 
-_Questions that need resolution before requirements are finalized._
+_Questions that need resolution before requirements are finalized. Structured entries auto-consumed by the **activity-entry scan** (spec P6); resolution fields stay empty until the question is resolved._
 
-1. {question}
+- **OQ-NNN** — {question}
+  - resolves_in: ASSESS | PLAN | REQS | DESIGN
+  - impact: scope-shaping | behavioral | architectural | cosmetic
+  - status: pending
+  - raised_at: {raising artefact ID, e.g., REQ-001}
+  - resolved_at: ""
+  - resolved_in: ""
+  - answer: ""
+  - answered_by: ""
+  - confidence: ""
+  - traces: []

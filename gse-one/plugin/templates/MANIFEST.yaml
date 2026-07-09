@@ -11,13 +11,13 @@ templates:
   # --- Core .gse/ state files (scope: project) ---
   - source: status.yaml
     target: .gse/status.yaml
-    created_by: /gse:hug
+    created_by: /gse:hug (or /gse:go Adopt Mode Step 4 — Initialize)
     scope: project
     description: Lifecycle state, health, complexity budget, coach observations
 
   - source: config.yaml
     target: .gse/config.yaml
-    created_by: /gse:hug
+    created_by: /gse:hug (or /gse:go Adopt Mode Step 4 — Initialize)
     scope: project
     description: Project configuration (~60 keys across 15 sections)
 
@@ -29,7 +29,7 @@ templates:
 
   - source: backlog.yaml
     target: .gse/backlog.yaml
-    created_by: /gse:hug
+    created_by: /gse:hug (or /gse:go Adopt Mode Step 4 — Initialize)
     scope: project
     description: Unified work items (TASK) with git state and test evidence
 

@@ -29,6 +29,8 @@ Priorities:
 - [ ] **Duplicate detection** — Identify overlapping or contradictory requirements
 - [ ] **Boundary conditions** — Ensure edge cases and limits are specified (max users, max file size, timeout values)
 - [ ] **Dependency mapping** — Identify requirements that depend on other requirements and flag circular dependencies
+- [ ] **Scope creep detection** (review time) — Flag diff changes that are not traced to any REQ-
+- [ ] **Quality checklist completion** (review time) — Verify the quality coverage matrix is present in `reqs.md`; if absent, emit a MEDIUM finding ("Quality assurance checklist was not run during requirements phase — NFR completeness unverified")
 
 ## Output Format
 

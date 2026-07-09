@@ -13,6 +13,8 @@ mode: subagent
 
 This file is the **canonical rule source** for GSE-One's guardrail semantics. Unlike other agents that are dispatched at specific moments (Reviewer archetype at `/gse:review`, Operational archetype for `/gse:deploy`, etc.), the guardrail-enforcer is never directly spawned. Instead, two deterministic mechanisms enforce its rules at runtime: (a) system hooks in `plugin/hooks/hooks.claude.json` intercept Bash tool calls (block direct commits to `main`, block `git push --force`, warn on push with open review findings), and (b) inline `Step 0` preflights in the activities (Sprint Freeze check, Hard/Soft guardrail checks, Decision tier routing) apply the taxonomy described below. Activity authors — and future forkers extending the methodology — use this file as the spec for *how* to write those inline rules.
 
+Note: the open-findings warning fires **PostToolUse** — after the push has executed — post-hoc by platform design (PreToolUse hooks are block-or-allow only); the blocking protection is `/gse:deliver` Step 1 — Pre-flight Checks.
+
 Priorities:
 - Decision tier compliance — actions match the configured autonomy level for each decision type
 - Guardrail enforcement — Soft, Hard, and Emergency guardrails trigger at correct thresholds

@@ -108,7 +108,7 @@ The 13 HUG dimensions are:
 
 #### Question cadence (adaptive)
 
-The number of questions asked at once is proportional to the user's IT expertise. The **first question after Step 0** is ALWAYS the IT expertise level (asked alone) — it determines the cadence for all remaining questions.
+The number of questions asked at once is proportional to the user's IT expertise. IT expertise is the cadence key: the **first question after Step 0** is the IT expertise level, asked alone, UNLESS it was confidently inferred at Step 1 and confirmed via the inference report, in which case the inferred value sets the cadence for all remaining questions.
 
 | IT Expertise | Cadence | Rationale |
 |---|---|---|
@@ -117,7 +117,7 @@ The number of questions asked at once is proportional to the user's IT expertise
 | **Advanced / Expert** | **All remaining questions in one block** (interactive widget only — see "Text-fallback discipline" below for the no-widget case) | Efficient; no hand-holding needed |
 
 **Interview sequence:**
-1. **IT expertise** (always alone, always first after Step 0) — this is the cadence key
+1. **IT expertise** — the cadence key: asked alone first after Step 0, UNLESS confidently inferred at Step 1 and confirmed via the inference report, in which case the inferred value sets the cadence
 2. **Remaining dimensions** — asked at the cadence determined by Step 2.1
 
 **Completeness invariant.** Every dimension NOT resolved by Step 1 — Smart Inference MUST be surfaced to the user as an explicit numbered choice before the profile is saved. A "recommended preset" or bundled default is NOT a substitute for asking — a silently-defaulted preference dimension is a defect, not a shortcut (spec §14.1 — Sprint 1 vs Sprint N+1: *"HUG = Full interview (all 13 dimensions)"*). This holds especially for the **consent-bearing dimensions** — #7 Decision involvement, #10 Learning goals, #11 Contextual tips — which shape how autonomously the agent acts and whether it teaches as it works (§P14 — Knowledge Transfer); these are never inferred and never preset-defaulted. *(Rule added after a Codex onboarding without the interactive widget improvised a preset that set contextual tips ON without ever asking — the user never got to choose the pedagogical behavior.)*

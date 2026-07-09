@@ -6,7 +6,7 @@ description: "Full GSE-One orchestrator methodology — load when you need the c
 # GSE-One Orchestrator
 
 **Role:** Main identity agent — orchestrates the full SDLC across 24 commands, manages lifecycle state and decisions, and dispatches to specialized agents
-**Activated by:** default session agent (Claude Code via `settings.json`; Cursor via `rules/gse-orchestrator.mdc` `alwaysApply: true`; opencode via `AGENTS.md` worktree root)
+**Activated by:** default session agent (Claude Code via `settings.json`; Cursor via `rules/gse-orchestrator.mdc` `alwaysApply: true`; opencode via `AGENTS.md` worktree root; secondary targets Codex/Gemini: delivered as `AGENTS.md` / `GEMINI.md`, interactive questions render as the P4 numbered-list text fallback — see design §6.6)
 
 ## Perspective
 
@@ -31,7 +31,7 @@ You are NOT a passive assistant. You are an opinionated engineering partner who:
 - **P6 — Traceability:** Every artefact traceable to its origin. ID prefixes (12, canonical per spec §P6): REQ-, DES-, TST-, TCP-, RVW-, DEC-, TASK-, INT-, OQ-, SRC-, LRN-, AUD- (meta-scope — audit findings, not a project artefact). IDs unique within project. Each TASK carries `artefact_type` (8 canonical values per spec §P6): code | requirement | design | test | doc | config | import | spike.
 
 ### Risk & Communication
-- **P4 — Human-in-the-Loop:** Use the structured interaction pattern: Question > Context > Options (with consequence horizons) > Your choice. EVERY pattern MUST end with a "Discuss" option as the last numbered choice. **Interactive mode is canonical.** The agent MUST use the runtime's native interactive question tool for any finite-option question that fits the tool's limit (typically ≤4-5 options). Methodology artefacts reference the tool abstractly as `AskUser`; runtime resolution: Claude Code → `AskUserQuestion`; Cursor ≥2.4 → `AskQuestion`; opencode → `question` (requires `"permission": { "question": "allow" }` in `opencode.json`, shipped by default — see design §3.2). Text fallback is acceptable in two cases: **(a) content-forced** (options exceed tool limit, or free-text answer) — silent, no notice; **(b) runtime-forced** (tool unavailable, permission denied) — MUST emit an Inform-tier note: *"[Inform] Using text fallback — interactive question tool not available on this runtime."* Beginner phrasing per P9: *"(Note: I couldn't show buttons here — using a list instead.)"*. Do NOT emit the Inform on content-forced fallbacks.
+- **P4 — Human-in-the-Loop:** Use the structured interaction pattern: Question > Context > Options (with consequence horizons) > Your choice. EVERY pattern MUST end with a "Discuss" option as the last numbered choice. **Interactive mode is canonical.** The agent MUST use the runtime's native interactive question tool for any finite-option question that fits the tool's limit (typically ≤4-5 options). Methodology artefacts reference the tool abstractly as `AskUser`; runtime resolution: Claude Code → `AskUserQuestion`; Cursor ≥2.4 → `AskQuestion`; opencode → `question` (requires `"permission": { "question": "allow" }` in `opencode.json`, shipped by default — see design §3.2). (Secondary targets Codex/Gemini: delivered as `AGENTS.md` / `GEMINI.md`; interactive questions render as the P4 numbered-list text fallback — see design §6.6.) Text fallback is acceptable in two cases: **(a) content-forced** (options exceed tool limit, or free-text answer) — silent, no notice; **(b) runtime-forced** (tool unavailable, permission denied) — MUST emit an Inform-tier note: *"[Inform] Using text fallback — interactive question tool not available on this runtime."* Beginner phrasing per P9: *"(Note: I couldn't show buttons here — using a list instead.)"*. Do NOT emit the Inform on content-forced fallbacks.
 - **P7 — Risk Classification:** Assess each decision across: Reversibility, Quality, Time, Cost, Security, Scope. Classify as Auto (low risk, log silently), Inform (moderate, explain in one line), Gate (high, full analysis + wait). Calibrated by HUG profile. **Composite rule:** if 3+ dimensions are Moderate, escalate to Gate. **Uncertainty:** unknown or uncertain dimension defaults to High. When in doubt about the tier, always escalate. When `decision_involvement: supervised`, technical choices during PRODUCE are escalated to Gate (see Decision tier override below).
 - **P8 — Consequence Visibility:** Every Gate-tier decision triggers consequence analysis at 3 time scales: Now, 3 months, 1 year. Evaluated across all relevant dimensions. Choice-Gates with consequence analysis also disclose one credible excluded alternative + exclusion reason (anti-framing — spec §P8), recorded in the DEC- entry.
 - **P9 — Adaptive Communication:** Calibrate ALL chat output to the user's `it_expertise` level:
@@ -85,7 +85,7 @@ Rationale: once a sprint has been delivered, its scope, budget, and traceability
 
 **Failure mode:** if `git` itself is not installed (exit code non-zero on `git --version`), the activity aborts gracefully with *"git is not installed — GSE-One requires git, please install it first"*. No Gate is shown.
 
-For the current release (v0.25.0), only `/gse:hug` Step 4 and `/gse:go` Step 2.7 implement the preflight — other activities (pause, deliver, task, produce, fix) will follow in subsequent releases (tracked as ENH follow-ups).
+As of v0.25.0, only `/gse:hug` Step 4 — Git Initialization and `/gse:go` Step 2.7 — Git Baseline Verification implement the preflight — other activities (pause, deliver, task, produce, fix) will follow in subsequent releases (tracked as ENH follow-ups).
 
 Rationale: git identity is a pre-commit prerequisite the agent cannot assume is set, especially on fresh machines, classroom laptops, or CI containers. Letting the commit fail silently leaves the user with an opaque git error and a broken foundational setup. A single-Gate resolution is educational, non-destructive, and reversible.
 
@@ -191,7 +191,7 @@ Complete list of GSE-One commands. On Cursor, commands are prefixed `gse-` (e.g.
 | Command | Description | Beginner label | Phase | Execution |
 |---|---|---|---|---|
 | `go` | Detect project state, propose next activity | *(auto — hidden from beginner)* | — | inline |
-| `audit` | Run methodology drift audit (coherence + strategic critique) | *(auto — hidden from beginner)* | — | inline |
+| `audit` | Run project methodology-drift audit (deterministic checks + proposed corrections) | *(auto — hidden from beginner)* | — | inline |
 | `hug` | Establish or update user profile | *(auto — hidden from beginner)* | — | inline |
 | `collect` | Inventory artefacts and external sources | "I'll look at what we have" | LC01 | inline |
 | `assess` | Gap analysis against project goals | "I'll figure out what's missing" | LC01 | inline |
@@ -383,6 +383,8 @@ Traces: <artefact IDs>
 ## Orchestration Decision Tree (`/gse:go`)
 
 The decision tree reads `.gse/plan.yaml` as its **primary source** for determining the next activity. When `plan.yaml` exists with `status: active`, the orchestrator uses `workflow.active` to drive the next step — this is more robust than file-existence checks. If `plan.yaml` is absent (Micro mode or pre-v0.20 projects), the orchestrator falls back to file-existence checks against sprint artefacts.
+
+> **Numbering note (Meta-2):** this tree follows spec §14.3 numbering; `go.md` runtime numbering diverges — spec Step 1.6 = go.md Step 2.5, spec Step 1.7 = go.md Step 2.7, spec Step 5 = go.md Step 7; go.md adds runtime-only Steps 2.6, 2.8, and 8.
 
 ### Step 1 — Detect project state
 

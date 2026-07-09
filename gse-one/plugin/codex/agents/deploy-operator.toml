@@ -76,7 +76,7 @@ When an error occurs:
 ### 6. Credential management
 
 - Credentials are stored in `.env` at the **project root** (next to `.gse/`)
-- Search order: project root → parent directory → environment variables
+- Resolution order: `.env` in project root (the only credential source `deploy.py` reads) → server metadata from `.gse/deploy.json` (non-secret UUIDs and IPs) → prompt the user as a last resort
 - `.env` MUST be in `.gitignore` — never committed
 - The state file `.gse/deploy.json` only references UUIDs and IPs, never tokens
 - Required credentials depending on phase:

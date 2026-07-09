@@ -91,7 +91,15 @@ PENDING REVIEW
 
 ### Step 5 — Health Score
 
-Display health dimensions as a compact dashboard:
+Read `.gse/config.yaml → lifecycle.mode` and branch (mirrors `/gse:health` Step 1 — Compute Health Dimensions):
+
+- **Micro mode** — Omit the health block entirely (optionally an Inform note: *"Health dashboard is disabled in Micro mode."*).
+- **Lightweight mode** — Display only the 3 dimensions computed in Lightweight (spec §13.2): `test_pass_rate`, `review_findings`, `git_hygiene`.
+- **Full mode** — Display all 8 dimensions.
+
+If `config.yaml` specifies `health.disabled_dimensions`, also exclude those from the displayed set.
+
+Display the active health dimensions as a compact dashboard (Full-mode example):
 
 ```
 HEALTH {overall}/10

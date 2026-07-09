@@ -16,11 +16,13 @@ gse:
 
 > Test ID convention: TST-001..TST-009 for unit tests, TST-010..TST-019 for
 > integration, TST-020..TST-029 for E2E, TST-030..TST-039 for policy tests.
-> Frontmatter `level:` field remains authoritative; ID ranges are visual convenience.
+> In this single-document form, each TST's `**Level:**` bullet is authoritative
+> (the frontmatter `level:` field remains authoritative for standalone TST files);
+> ID ranges are visual convenience.
 
 ## Test Strategy
 
-- **Domain:** {web | cli | library | embedded | scientific | mobile}
+- **Domain:** {web | api | cli | data | mobile | embedded | library | scientific | other}
 - **Pyramid target:** Unit {N}% / Integration {N}% / E2E {N}% / Policy {N}%
 - **Coverage target:** {N}%
 - **Framework:** {pytest | jest | ...}
@@ -38,6 +40,7 @@ gse:
 - **Edge cases:**
   - {edge case 1}
   - {edge case 2}
+- **Level:** unit
 
 ### TST-002 — {test title}
 
@@ -47,6 +50,7 @@ gse:
 - **Given:** {preconditions}
 - **When:** {action}
 - **Then:** {expected outcome}
+- **Level:** unit
 
 ## Integration Tests
 
@@ -61,6 +65,7 @@ gse:
   2. {step}
 - **Expected:** {integrated behavior}
 - **Teardown:** {cleanup}
+- **Level:** integration
 
 ## E2E Tests
 
@@ -77,6 +82,7 @@ gse:
   3. {user action}
   4. {expected response}
 - **Success criteria:** {what constitutes a pass}
+- **Level:** e2e
 
 ## Policy Tests
 

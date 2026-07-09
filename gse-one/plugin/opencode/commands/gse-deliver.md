@@ -133,7 +133,7 @@ For each TASK in the sprint that implements at least one must-priority REQ (via 
 
 **Guardrail 2 — Unexecuted test strategy** (per spec §9.3.1).
 
-Read `docs/sprints/sprint-{NN}/test-strategy.md` if it exists. Identify **declared test levels** by scanning H2 sections (`## Unit Tests`, `## Integration Tests`, `## E2E Tests`, `## Policy Tests`); a level is *declared* if its H2 section contains at least one `### TST-NNN` entry. Then list all `TCP-` campaign reports in `docs/sprints/sprint-{NN}/test-reports/` and determine **covered levels** — a level is *covered* if at least one `TCP-` campaign executed at least one TST- entry of that level (cross-reference TST `level:` frontmatter field, declared at template line 17–19: *"Frontmatter `level:` field remains authoritative"*).
+Read `docs/sprints/sprint-{NN}/test-strategy.md` if it exists. Identify **declared test levels** by scanning H2 sections (`## Unit Tests`, `## Integration Tests`, `## E2E Tests`, `## Policy Tests`); a level is *declared* if its H2 section contains at least one `### TST-NNN` entry. Then list all `TCP-` campaign reports in `docs/sprints/sprint-{NN}/test-reports/` and determine **covered levels** — a level is *covered* if at least one `TCP-` campaign executed at least one TST- entry of that level (cross-reference each TST's declared level — the per-TST **Level** bullet in the single strategy document, or the `level:` frontmatter field for standalone TST files; see the `sprint/tests.md` ID-convention note).
 
 - **All declared levels covered** → Proceed silently.
 - **At least one declared level has no `TCP-` covering it** → **Hard guardrail: block delivery.** Present Gate with 4 options:
@@ -148,7 +148,7 @@ Read `docs/sprints/sprint-{NN}/test-strategy.md` if it exists. Identify **declar
 
 - **Stale evidence** (`test_evidence.timestamp` predates latest feature-branch commit) → Soft guardrail: warn, suggest re-running. Non-blocking.
 
-This step enforces the three canonical Test-Specific Guardrails defined in spec §9.3.1 and the contract of spec §6.3 — Test Execution and Evidence (line 1586: *"Write `test_evidence` on each covered TASK"*). It is the consumer of the `test_evidence` field and the test-strategy / test-reports coherence check.
+This step enforces the three canonical Test-Specific Guardrails defined in spec §9.3.1 and the contract of spec §6.3 — Test Execution and Evidence, canonical run step 5 — *"Write `test_evidence` on each covered TASK"*. It is the consumer of the `test_evidence` field and the test-strategy / test-reports coherence check.
 
 ### Step 1.6 — Minimal Integrity Pass (Lightweight mode only)
 
@@ -248,10 +248,10 @@ Unless `--skip-cleanup` was specified:
 Generate release notes at `docs/sprints/sprint-{NN}/release.md` using the **authoritative template** `plugin/templates/sprint/release.md` — instantiate its `gse:` frontmatter (`type: release`, `sprint`, `version`, `tag`, `commit`, `traces.implements: [all delivered TASK IDs]`, timestamps) and fill its sections from sprint data:
 
 - **Overview** — one-paragraph summary of the sprint delivery
-- **What's New** — delivered TASKs grouped per the template's subsections (table: Task | Type | Description | Complexity)
-- **Review Summary** — findings count by severity (HIGH/MEDIUM/LOW), all-resolved flag
-- **Test Summary** — tests run / passed / failed
-- **Health Score** — before / after (from `status.yaml → health`)
+- **What's New** — delivered TASKs distributed across the template's Features / Improvements / Bug Fixes bullet subsections, each bullet citing the TASK/REQ ids it implements
+- **Quality Summary** — fill the template table rows: test coverage, tests passed, review findings open, health score (from `status.yaml → health`), security findings
+- **Known Issues** — unresolved findings or accepted risks (with their DEC- reference) and workarounds
+- **Sprint History** — append the current sprint's goal and completed item count
 
 Do not invent an ad-hoc skeleton — the template is the single authority for structure.
 

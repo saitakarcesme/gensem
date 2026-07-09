@@ -2979,6 +2979,8 @@ The adopt flow is designed to be **non-destructive**: it never modifies existing
 
 When invoked, `/gse:go` follows this decision tree:
 
+> **Step-numbering note (Meta-2):** this section and `gse-one/src/activities/go.md` number the same steps differently: spec Step 1.6 = go.md Step 2.5; spec Step 1.7 = go.md Step 2.7; spec Step 5 = go.md Step 7; go.md adds runtime-only Steps 2.6, 2.8, 8.
+
 **Activity Execution Fidelity Invariant.** Whenever the orchestrator executes an activity (invoked by the user, auto-routed inline by another activity per spec §14.3 Orchestrator Decision Logic, or auto-triggered by orchestrator logic), the agent MUST:
 
 1. **Load the target activity's source file verbatim** — paraphrase from agent memory is forbidden. Preserves structural details (interactive-mode blocks, multi-language question forms, exact option sets) that paraphrasing silently drops.

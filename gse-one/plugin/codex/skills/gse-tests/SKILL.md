@@ -149,6 +149,8 @@ When the review fires, spawn the `test-strategist` sub-agent (see `plugin/agents
 
 When none of the triggers fire, skip this pass — the strategy is trusted on the fly to keep light sprints agile. The user can always force it later with `--review-strategy`.
 
+> **Workflow structure note (Meta-2):** the next three `###` sections (Risk-Based Prioritization, Coverage Guardrail, Adaptation to User Expertise) are auxiliary transversal policies attached to Step 1's strategy work, not workflow steps — they keep their spec §6 section mapping; the Step sequence resumes at Step 2.
+
 ### Risk-Based Prioritization (Spec 6.1)
 
 Not all code needs equal test coverage. Prioritize testing based on risk:
@@ -309,7 +311,7 @@ TESTS invokes the **canonical test run** defined in spec §6.3. Argument handlin
 |------------|-------|
 | `--run` (no arg) | Full suite |
 | `--run TST-005` | Single test identified by TST-NNN |
-| `--run --level unit` | All tests at the specified pyramid level (unit / integration / e2e / visual / performance) |
+| `--run --level unit` | All tests at the specified pyramid level (unit / integration / e2e / visual / performance / policy) |
 
 Unlike PRODUCE, TESTS does **not** auto-generate missing tests — tests must already exist. If no tests exist for the requested scope, report and redirect to `--strategy` / Step 3.
 

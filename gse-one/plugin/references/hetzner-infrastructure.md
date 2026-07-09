@@ -135,13 +135,15 @@ Practical limit: ~20-30 web apps with moderate concurrent usage
 ## 6. State file
 
 Deployment state lives in `.gse/deploy.json` at the project root. Its schema
-is documented in `gse-one-implementation-design.md` §5.18 (State schema).
+is documented in `gse-one-implementation-design.md` §5.18 (State schema) — a
+maintainer-side pointer (methodology source repo; the deploy tool writes and
+owns the schema at runtime).
 Credentials (tokens, SSH keys) never live in the state file; they live in
 `.env` which MUST be gitignored.
 
 ## 7. Coolify API Endpoints Reference
 
-> Last verified: 2026-06-10
+> Last verified: 2026-07-09 (documentation review; endpoints cross-checked against deploy.py / coolify_client.py usage — live Coolify behavior not re-tested)
 
 | Operation | Method | Endpoint |
 |-----------|--------|----------|
@@ -160,12 +162,15 @@ Credentials (tokens, SSH keys) never live in the state file; they live in
 | Deploy (webhook) | GET | `/api/v1/deploy?uuid={uuid}` |
 | List projects | GET | `/api/v1/projects` |
 | Create project | POST | `/api/v1/projects` |
+| Create environment | POST | `/api/v1/projects/{uuid}/environments` |
 | Delete project | DELETE | `/api/v1/projects/{uuid}` |
+| Set instance settings | PATCH | `/api/v1/settings/general` |
 
-**CRITICAL**: `/start` = full rebuild (pull git, rebuild Docker, install deps).
-`/restart` = reuse existing container (no code update). Always use `/start`
-for code updates. To force a rebuild on the same commit:
-`GET /api/v1/deploy?uuid={uuid}&force=true`.
+**CRITICAL**: the canonical rebuild trigger for code updates is the deploy
+webhook — `GET /api/v1/deploy?uuid={uuid}&force=true` (what
+`CoolifyClient.trigger_deploy` calls). `/start` is the underlying endpoint
+(full rebuild: pull git, rebuild Docker, install deps). `/restart` = reuse
+existing container (no code update) — never use it for code updates.
 
 ### Docker cache-bust (universal best practice)
 
@@ -184,6 +189,8 @@ reused.
 `ARG SOURCE_COMMIT=unknown` as the first ARG after the base image.
 
 ## 8. GitHub Actions Integration
+
+> Last verified: 2026-07-09 (documentation review; endpoints cross-checked against deploy.py / coolify_client.py usage — live Coolify behavior not re-tested)
 
 Coolify can redeploy applications via webhook on git push. Two patterns:
 

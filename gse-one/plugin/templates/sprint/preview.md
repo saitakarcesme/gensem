@@ -88,3 +88,5 @@ _If importing external sources: list of imported items with sanity checks._
 
 - _{decision 1}_
 - _{decision 2}_
+
+_A `## UX Notes` section is appended on demand by `/gse:preview` Step 2.5 — UX design pass (LOW findings); no empty placeholder heading is pre-created._

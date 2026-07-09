@@ -1224,7 +1224,7 @@ When `/gse:go` is invoked:
 
 **Activity Execution Fidelity Invariant (spec §14.3).** Realized by two rules operating at different granularities:
 
-1. **Activity load** — whenever the orchestrator or an activity file resolves an execution (direct, inline-routed, or auto-triggered), the agent MUST open the target's source file — Claude Code: `$(cat ~/.gse-one)/skills/<name>/SKILL.md`; Cursor: `$(cat ~/.gse-one)/commands/gse-<name>.md`; opencode: `$(cat ~/.gse-one)/skills/<name>/SKILL.md` (same as Claude Code).
+1. **Activity load** — whenever the orchestrator or an activity file resolves an execution (direct, inline-routed, or auto-triggered), the agent MUST open the target's source file — Claude Code: `$(cat ~/.gse-one)/skills/<name>/SKILL.md`; Cursor: `$(cat ~/.gse-one)/commands/gse-<name>.md`; opencode: `$(cat ~/.gse-one)/skills/<name>/SKILL.md` (same as Claude Code); Gemini: `$(cat ~/.gse-one)/commands/gse/<name>.toml`; Codex: invoke the `gse-<name>` skill natively, or load it from the agents skills directory (path is mode-dependent).
 
 2. **Step execution** — the agent MUST execute every Step in order. Legitimate skip conditions: conditional Step (source declares a guard), user override, or frontmatter-declared exempt. Agent-driven skips MUST emit an Inform-tier note. Exempt activities (display-only): `/gse:status`, `/gse:health`, `/gse:backlog` display, `/gse:audit`.
 
@@ -2075,7 +2075,7 @@ for each proposed_theme:
 
 Compound prepares the tickets as a draft set (stored transiently in `.gse/compound-tickets-draft.yaml` for handoff). `/gse:integrate` Axe 2 reads this file and executes the user-approved `gh issue create` calls. No change to integrate's skeleton — just the input quality is now higher.
 
-**Upstream repository resolution (Axe 2):** the target repository for `gh issue create` is resolved in order: (1) `config.yaml → github.upstream_repo` if non-empty (user override — private forks, corporate trackers), (2) plugin manifest — `plugin.json → repository` on Claude/Cursor, `opencode.json → gse.repository` on opencode (canonical default shipped with the plugin), (3) if neither resolves, `/gse:compound` Axe 2 hides the ticket-proposal options and only offers the local export. The final Gate before `gh issue create` must state explicitly that GitHub issues are public (privacy acknowledgment — cf. P4 consequence visibility).
+**Upstream repository resolution (Axe 2):** the target repository for `gh issue create` is resolved in order: (1) `config.yaml → github.upstream_repo` if non-empty (user override — private forks, corporate trackers), (2) plugin manifest — `plugin.json → repository` on Claude/Cursor, `opencode.json → gse.repository` on opencode (canonical default shipped with the plugin); Codex CLI and Gemini CLI installs ship no manifest repository source, so on those platforms step 2 yields nothing and resolution falls to step 3 unless `github.upstream_repo` is set, (3) if neither resolves, `/gse:compound` Axe 2 hides the ticket-proposal options and only offers the local export. The final Gate before `gh issue create` must state explicitly that GitHub issues are public (privacy acknowledgment — cf. P4 consequence visibility).
 
 **Configuration:**
 

@@ -50,9 +50,9 @@ Sprint S02 (current)
 
 Sprint S01 (delivered)
 ─────────────────────
-  TASK-001 [code]     ✓ done         feat/project-init     Initialize project structure
-  TASK-002 [design]   ✓ done         feat/db-schema        Design database schema
-  TASK-003 [test]     ✓ done         feat/db-schema-test   Write schema migration tests
+  TASK-001 [code]     ⇧ delivered    feat/project-init     Initialize project structure
+  TASK-002 [design]   ⇧ delivered    feat/db-schema        Design database schema
+  TASK-003 [test]     ⇧ delivered    feat/db-schema-test   Write schema migration tests
 
 Pool (unassigned)
 ─────────────────
@@ -66,6 +66,11 @@ Status symbols:
 - `●` in-progress
 - `○` planned (assigned to sprint but not started)
 - `◌` open (displayed as "Pool" — unassigned to any sprint)
+- `◐` review (under review)
+- `✔` reviewed (review passed)
+- `◑` fixing (review findings being addressed)
+- `⊘` deferred (moved out of the sprint)
+- `⇧` delivered (shipped in a delivered sprint)
 
 #### Step 3 — Summary Line
 

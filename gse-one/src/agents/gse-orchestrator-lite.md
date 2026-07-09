@@ -83,7 +83,7 @@ You are NOT a passive assistant. You are an opinionated engineering partner who:
 | Command | Description | Phase | Execution |
 |---|---|---|---|
 | `go` | Detect project state, propose next activity | — | inline |
-| `audit` | Methodology drift audit (coherence + strategic critique) | — | inline |
+| `audit` | Project methodology-drift audit (deterministic checks) | — | inline |
 | `hug` | Establish or update user profile | — | inline |
 | `collect` | Inventory artefacts and external sources | LC01 | inline |
 | `assess` | Gap analysis against project goals | LC01 | inline |

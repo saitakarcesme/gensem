@@ -27,6 +27,8 @@ Before executing, read:
 
 ## Workflow
 
+> **Step-numbering note (Meta-2):** spec §14.3 — Session Start (`/gse:go`) numbers the same steps differently: spec Step 1.6 = go.md Step 2.5; spec Step 1.7 = go.md Step 2.7; spec Step 5 = go.md Step 7; go.md adds runtime-only Steps 2.6, 2.8, 8.
+
 ### Step 1 — Detect Project State
 
 Examine the working directory to classify the situation.
@@ -40,7 +42,7 @@ Examine the working directory to classify the situation.
 | Condition | State | Action |
 |-----------|-------|--------|
 | No `.gse/` directory AND project files exist (after exclusions) | **Adopt candidate** | Transition to Adopt mode (Step 8) |
-| No `.gse/` directory AND directory is empty/near-empty (only excluded dirs) | **New project** | **Automatically execute** `/gse:hug` (do NOT just propose it — run it directly). **Per the Activity Execution Fidelity Invariant (orchestrator)**: open the target activity's source file — `$(cat ~/.gse-one)/skills/hug/SKILL.md` on Claude Code or opencode, `$(cat ~/.gse-one)/commands/gse-hug.md` on Cursor — and apply Step 0 literally. Do NOT paraphrase the language question. No preamble, no table, no technical explanation before Step 0. |
+| No `.gse/` directory AND directory is empty/near-empty (only excluded dirs) | **New project** | **Automatically execute** `/gse:hug` (do NOT just propose it — run it directly). **Per the Activity Execution Fidelity Invariant (orchestrator)**: open the target activity's source file — `$(cat ~/.gse-one)/skills/hug/SKILL.md` on Claude Code or opencode, `$(cat ~/.gse-one)/commands/gse-hug.md` on Cursor, `$(cat ~/.gse-one)/commands/gse/hug.toml` on Gemini; on Codex, invoke the `gse-hug` skill natively, or load it from the agents skills directory (path is mode-dependent) — and apply Step 0 literally. Do NOT paraphrase the language question. No preamble, no table, no technical explanation before Step 0. |
 | `.gse/` exists | **Existing project** | Read `status.yaml` and proceed to Step 2 |
 
 **New project auto-start rule:** When the project is empty, the user's intent is clear — they want to get started. The agent MUST immediately execute the HUG skill inline (language question first, then profile interview) without asking for confirmation or displaying diagnostic output. The user should see the HUG language question as the very first interaction, not a status table.
@@ -164,7 +166,7 @@ If the session-without-progress count reaches the configured threshold:
 2. Present Gate decision:
    - **Resume** — Continue where we left off (default)
    - **Partial delivery** — Deliver completed tasks, move remaining to pool
-   - **Discard** — Abandon sprint, return all tasks to pool
+   - **Discard** — Abandon sprint, return all tasks to pool, delete sprint branches
    - **Discuss** — Explain the situation and help decide
 
 ### Step 5 — Failure Handling
@@ -242,7 +244,7 @@ After the user confirms, set `config.yaml → lifecycle.mode` and proceed:
 | Sprint artefacts | Full set (plan-summary, reqs, design, tests, review, compound) | reqs.md only | None |
 | Health dashboard | 8 dimensions | 3 (test_pass_rate, review_findings, git_hygiene) | None |
 | Complexity budget | Tracked | Not tracked | Not tracked |
-| Decision tiers | Full P7 assessment (Auto + Inform + Gate) | Simplified (Auto + Gate only) | Gate only (security/destructive) |
+| Decision tiers | Full P7 assessment (Auto + Inform + Gate) | Simplified (Auto + Gate for decisions; Inform kept for guardrail and transparency notices) | Gate only (security/destructive) |
 | REQS guardrail | Hard (mandatory) | Hard (mandatory, reduced ceremony) | Not enforced |
 | TESTS guardrail | Hard (formal strategy required) | Soft (auto-generated strategy, Inform) | Not enforced |
 | REQS ceremony | Full: elicitation + REQs + quality checklist + coverage analysis | Reduced: elicitation + REQs (no quality checklist, no coverage analysis) | None |

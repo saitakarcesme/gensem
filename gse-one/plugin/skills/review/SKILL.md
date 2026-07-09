@@ -209,7 +209,7 @@ After collecting devil's advocate findings, cross-reference with the original co
 For each finding, create a structured entry:
 
 ```
-RVW-{NNN}:
+RVW-{NNN} [{SEVERITY}] — {title}
   severity: HIGH | MEDIUM | LOW
   perspective: {agent-role}
   location:

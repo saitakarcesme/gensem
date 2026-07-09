@@ -5,7 +5,7 @@ This reference centralizes SSH connection patterns used by `/gse:deploy`
 
 ## Credential resolution
 
-Always read credentials in this order (matches what `deploy.py` actually honors — project-local files only, per CLAUDE.md > Tool architecture > Configuration policy):
+Always read credentials in this order (matches what `deploy.py` actually honors — project-local files only):
 
 1. `.env` in project root (the only credential source `deploy.py` reads)
 2. `.gse/deploy.json` → `server.ipv4`, `server.name` (non-secret server metadata)

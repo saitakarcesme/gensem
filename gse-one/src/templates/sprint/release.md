@@ -23,7 +23,7 @@ _One-paragraph summary of what this release delivers._
 
 ### Features
 
-- **{feature title}** — {brief description} (R01, R02)
+- **{feature title}** — {brief description} (TASK-NNN, REQ-NNN)
 
 ### Improvements
 

@@ -95,9 +95,21 @@ _If no shared state applies to this sprint: replace the table with:_
 |---------------|-------------|----------------------------------|------------------------|
 |               |             |                                  |                        |
 
-## Open Design Questions
+## Open Questions
 
-1. {question needing resolution}
+_Open **design** questions needing resolution. Structured entries auto-consumed by the **activity-entry scan** (spec P6); resolution fields stay empty until the question is resolved._
+
+- **OQ-NNN** — {question needing resolution}
+  - resolves_in: ASSESS | PLAN | REQS | DESIGN
+  - impact: scope-shaping | behavioral | architectural | cosmetic
+  - status: pending
+  - raised_at: {raising artefact ID, e.g., DES-001}
+  - resolved_at: ""
+  - resolved_in: ""
+  - answer: ""
+  - answered_by: ""
+  - confidence: ""
+  - traces: []
 
 ## Inform-tier Decisions
 
@@ -107,3 +119,5 @@ _If no shared state applies to this sprint: replace the table with:_
 
 - _{decision 1}_
 - _{decision 2}_
+
+_A `## Security Notes` section is appended on demand by `/gse:design` Step 5.5 — Security design pass (LOW findings); no empty placeholder heading is pre-created._

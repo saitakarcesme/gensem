@@ -153,15 +153,15 @@ Mark dimensions with declining trend (2+ consecutive drops).
 If `--dimension DIM` is specified, show detailed breakdown:
 
 ```
-DIMENSION: git_hygiene (5.5/10)
+DIMENSION: git_hygiene (7.5/10)
 
 Sub-metrics:
-  Active branches:      8/10 (weight 20%)  — 3 active (expected: 2-4)
+  Active branches:     10/10 (weight 20%)  — 3 active (≤ 3 → full score)
   Stale branches:       6/10 (weight 20%)  — 2 stale: gse/sprint-01/feat/old, gse/sprint-01/doc/readme
   Uncommitted changes:  4/10 (weight 20%)  — .worktrees/sprint-02-feat-api has 5 uncommitted files
   Merge conflicts:     10/10 (weight 20%)  — no conflicts detected
   Main clean:          10/10 (weight 10%)  — main matches last delivery
-  Unreviewed branches:  0/10 (weight 10%)  — 1 unreviewed: gse/sprint-02/feat/api
+  Unreviewed branches:  5/10 (weight 10%)  — 1 unreviewed: gse/sprint-02/feat/api
 
 Recommendations:
   1. Commit or stash changes in sprint-02-feat-api worktree

@@ -323,7 +323,7 @@ The agent returns findings tagged `[REQ-QUALITY]` covering:
 
 **Triage:**
 - HIGH or MEDIUM findings **must be resolved before Persist**: the user may amend the REQ inline, or accept the REQ as-is and create a DEC-NNN documenting the accepted risk.
-- LOW findings are appended to the sprint's `reqs.md` under an `## Open Questions` section with `resolves_in: DESIGN | PRODUCE` or `status: accepted` if deemed acceptable.
+- LOW findings are appended to the sprint's `reqs.md` under an `## Open Questions` section with `resolves_in: DESIGN`, or — if deemed acceptable as-is — recorded as `status: resolved` with `answer: "accepted as-is"` and `answered_by: user`.
 
 **Beginner adaptation** (per P9): instead of listing findings with tags, present them as plain-language questions: *"REQ-003 talks about 'fast response' — do you have a specific time limit in mind? e.g., under 1 second."*
 
