@@ -3134,7 +3134,7 @@ The recommendation is presented as a **Gate decision**:
 3. Discuss — explain what each mode implies for this project
 ```
 
-The chosen mode is written to `config.yaml → lifecycle.mode` and to `status.yaml` for subsequent sessions. Upgrading later is possible at any time via `/gse:go` — the agent scaffolds the missing structure (see §13.2 "Upgrading from Micro → Lightweight → Full").
+The chosen mode is written to `config.yaml` → `lifecycle.mode` for subsequent sessions. (Micro projects, which keep no `config.yaml`, are re-detected by the triviality pre-filter on each `/gse:go`.) Upgrading later is possible at any time via `/gse:go` — the agent scaffolds the missing structure (see §13.2 "Upgrading from Micro → Lightweight → Full").
 
 ```yaml
 # In config.yaml → lifecycle:
