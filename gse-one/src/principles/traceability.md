@@ -11,34 +11,44 @@ Every artefact receives a unique identifier upon creation. These identifiers are
 
 ## Operational Rules
 
-1. **ID allocation prefixes** — Each artefact type has a designated prefix:
+1. **ID allocation prefixes** — Each artefact type has a designated prefix (12 prefixes, canonical per spec §P6 — Traceability):
 
    | Prefix | Artefact Type | Example |
    |--------|---------------|---------|
    | `REQ-` | Requirement | REQ-001, REQ-042 |
-   | `DES-` | Design | DES-001, DES-015 |
-   | `TST-` | Test | TST-001, TST-030 |
-   | `RVW-` | Review | RVW-001, RVW-008 |
+   | `DES-` | Design decision | DES-001, DES-015 |
+   | `TST-` | Test definition | TST-001, TST-030 |
+   | `TCP-` | Test campaign report (execution event) | TCP-007 |
+   | `RVW-` | Review finding | RVW-001, RVW-008 |
    | `DEC-` | Decision | DEC-001, DEC-003 |
-   | `TASK-` | Task | TASK-001, TASK-055 |
+   | `TASK-` | Work item (backlog + sprint tasks — unified) | TASK-001, TASK-055 |
+   | `INT-` | Project intent | INT-001 |
+   | `OQ-` | Open question (pending resolution) | OQ-003 |
    | `SRC-` | External source | SRC-001, SRC-003 |
    | `LRN-` | Learning note | LRN-001, LRN-012 |
+   | `AUD-` | Audit finding (methodology drift — *meta-scope, produced by `/gse:audit`, not a project artefact*) | AUD-003 |
 
 2. **ID uniqueness** — IDs are unique within the project scope. The agent maintains a counter per prefix. IDs are NEVER recycled. If REQ-005 is deprecated, the next requirement is REQ-006 (or whatever the next unused number is), never REQ-005 again. There is no separate ID registry file: existing IDs are enumerated from `.gse/backlog.yaml` and artefact frontmatter, and surfaced by the dashboard.
 
-3. **Trace link types** — Four typed link categories are used in frontmatter:
+3. **Trace link types** — Seven typed link categories are used in frontmatter (canonical per spec §P6 — Traceability):
 
    | Link type | Meaning | Example |
    |-----------|---------|---------|
    | `derives_from` | "I come from..." | REQ derives from TASK, DES derives from REQ |
-   | `implements` | "I realize/validates..." | Code implements DES, test validates REQ |
+   | `implements` | "I realize..." | Code implements DES; a sprint tests doc covers [REQ, DES] (doc-level rollup) |
+   | `validates` | "I validate..." | TST validates a REQ acceptance criterion (validation tests) |
+   | `enforces` | "I enforce..." | Policy TST enforces a DEC or a design structural rule |
+   | `tested_by` | "I am verified by..." | REQ/DES points back at its TST (inverse link, see spec §12.2 — Artefact Metadata) |
    | `decided_by` | "This choice is justified by..." | DES justified by DEC |
    | `related_to` | "Related to..." | Catch-all for weak/informational links |
 
    ```yaml
    traces:
      derives_from: []    # This artefact was derived from these artefacts
-     implements: []      # This artefact implements or validates these artefacts
+     implements: []      # This artefact realizes these artefacts
+     validates: []       # This test validates these acceptance criteria
+     enforces: []        # This policy test enforces these decisions/rules
+     tested_by: []       # This artefact is verified by these tests (inverse link)
      decided_by: []      # This artefact was shaped by these decisions
      related_to: []      # Informational relationship (no formal dependency)
    ```
@@ -55,11 +65,16 @@ Every artefact receives a unique identifier upon creation. These identifiers are
    | If A says... | Then B should reference A via... |
    |-------------|--------------------------------|
    | `derives_from: [B]` | B is derived into A |
-   | `implements: [B]` | B is implemented/validated by A |
+   | `implements: [B]` | B is implemented by A |
+   | `validates: [B]` | B is validated by A (typically recorded as `tested_by: [A]`) |
+   | `enforces: [B]` | B is enforced by A |
+   | `tested_by: [B]` | B verifies A (B typically records `validates: [A]`) |
    | `decided_by: [B]` | B justifies A |
    | `related_to: [B]` | B is related to A |
 
-5. **artefact_type field** — Every artefact's frontmatter MUST include an `artefact_type` field with one of: `code`, `requirement`, `design`, `test`, `doc`, `config`, `decision`, `task`, `review`, `learning`, `import`.
+5. **artefact_type field** — The type vocabulary has two scopes (do not mix them):
+   - **TASK `artefact_type`** (what a work item produces, per spec §P6 — Traceability): `code` | `requirement` | `design` | `test` | `doc` | `config` | `import` | `spike` (8 values; `spike` is complexity-boxed, max 3 points, non-deliverable).
+   - **Document-level `artefact_type`** (flat frontmatter of standalone one-artefact files, per spec §12.2 — Artefact Metadata): `intent` (INT-NNN) | `learning` (LRN-NNN) | `external-source` (SRC-NNN). Section-level documents (requirements, design, tests, review…) use the nested `gse: type:` form instead — see spec §12.2 for the two storage patterns.
 
 6. **Impact analysis** — Before modifying any artefact, the agent MUST check its trace links to identify potentially impacted artefacts. If impacts are found, they are reported to the human:
    ```

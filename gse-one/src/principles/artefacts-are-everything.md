@@ -15,7 +15,6 @@ This principle ensures that nothing falls through the cracks. Every piece of pro
    | Type | Prefix | Description | Examples |
    |------|--------|-------------|----------|
    | `requirement` | REQ- | What the system must do or be | User stories, constraints, NFRs |
-   | `requirement` | REQ- | What the system must do | Functional and non-functional requirements |
    | `design` | DES- | How the system is structured | Architecture docs, component designs, API specs |
    | `code` | — | Implementation files | Python modules, scripts, configurations |
    | `test` | TST- | Verification artefacts | Test cases, test plans, test reports |
@@ -23,14 +22,7 @@ This principle ensures that nothing falls through the cracks. Every piece of pro
    | `config` | — | Configuration | CI/CD configs, environment settings, tool configs |
    | `import` | SRC- | Imported external content | External source with provenance (traced in `.gse/sources.yaml`) |
 
-   Additional ID prefixes (not artefact types, but tracked entities):
-
-   | Prefix | Entity | Examples |
-   |--------|--------|----------|
-   | `DEC-` | Decision | Architecture decisions logged in `.gse/decisions.md` |
-   | `TASK-` | Work item | Sprint tasks and backlog items in `.gse/backlog.yaml` |
-   | `RVW-` | Review finding | Findings from `/gse:review` |
-   | `LRN-` | Learning note | Knowledge transfer notes in `docs/learning/` |
+   Beyond the artefact-type prefixes above, further tracked entities carry their own ID prefixes (DEC-, TASK-, RVW-, LRN-, …). The complete ID-prefix catalog (12 prefixes) is defined in spec §P6 — Traceability, the single source of truth — no copy is maintained here.
 
 2. **YAML frontmatter** — Every artefact MUST have YAML frontmatter with at minimum:
    ```yaml
