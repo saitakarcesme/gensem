@@ -17,7 +17,7 @@ By default the report is saved to `_LOCAL/audits/audit-<ISO-timestamp>.md`
 directory is gitignored, so saved reports never leak into git. Use
 `--no-save` to disable the auto-save (stdout only).
 
-For reasoning-based checks (LLM), use the `/gse-audit` slash command in
+For reasoning-based checks (LLM), use the `/gse-meta-audit` slash command in
 Claude Code — it invokes this script for deterministic checks, then
 performs semantic reasoning via the methodology-auditor agent across the
 LLM audit jobs (Categories A-E) defined in .claude/audit-jobs.json — the

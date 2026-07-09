@@ -65,7 +65,7 @@
       "type": "intra_layer_group",
       "refinement": "none",
       "files": ["gse-one/src/agents/*.md", "CLAUDE.md"],
-      "scope": "All agents (orchestrator + 10 specialized) follow the structure of their declared archetype.",
+      "scope": "All 11 spawnable agents (orchestrator + 10 specialized) follow the structure of their declared archetype. The glob also matches gse-orchestrator-lite.md, which is a condensed Identity-archetype derivative used only as the Codex AGENTS.md (see CLAUDE.md > Agent archetypes) — it is NOT a spawnable agent and MUST be excluded from archetype-conformance and agent-count checks.",
       "checks": [
         "YAML frontmatter (name, description) present",
         "Each agent matches its declared archetype's standard sections per CLAUDE.md > Agent archetypes (Identity / Reviewer / Operational / Observational / Compliance); flag only deviations from the agent's OWN archetype, never cross-archetype differences",
@@ -444,24 +444,29 @@
       "type": "horizontal_cluster",
       "refinement": "bidirectional",
       "files": [
-        ".claude/commands/gse-audit.md",
+        ".claude/commands/gse-meta-audit.md",
+        ".claude/commands/gse-meta-audit-fix.md",
+        ".claude/commands/gse-release.md",
         ".claude/agents/methodology-auditor.md",
         ".claude/audit-jobs.json",
         "gse-one/audit.py",
         "gse-one/audit_catalog.py",
-        "README.md"
+        "README.md",
+        "CLAUDE.md"
       ],
       "scope": "The audit system audits itself: protocol doc, auditor role, job catalog, Python engine, and the user-facing README 'Auditing the plugin' section stay mutually coherent (the v0.62 Category F addition drifted the first four; the v0.75.0 registry redesign left the README still describing the retired multi-file persistence — this job exists so that class of drift is caught at the next run).",
       "checks": [
-        "Job counts and per-category counts stated in gse-audit.md prose and its category table match the actual catalog content (load it; never trust the prose)",
+        "Job counts and per-category counts stated in gse-meta-audit.md prose and its category table match the actual catalog content (load it; never trust the prose)",
         "README's 'Auditing the plugin' section is coherent with the actual audit.py contract — both directions: the documented persistence (single canonical _LOCAL/audit/audit.json registry + /tmp throwaway render for the slash command; deterministic _LOCAL/audits/ markdown for the standalone CLI) must NOT describe the retired pre-v0.75.0 multi-file pattern, and every audit.py registry flag (--emit-registry, --merge, --set-verdicts, --render/--out) must be reflected",
         "README's audit job/category counts (e.g. '28 jobs', '23 LLM jobs', Category A-F bullet lists) match the catalog; every Category D job in the catalog is listed in the README bullets (no silent omission)",
-        "Category/type/refinement enums are identical across the audit-jobs.json schema block, audit_catalog.py constants (VALID_CATEGORIES, VALID_TYPES, VALID_REFINEMENTS), gse-audit.md docs ('Customizing the catalog' + sub-agent prompt template), and methodology-auditor.md Output format",
-        "The sub-agent prompt template fields in gse-audit.md Phase 3 match the Finding fields defined in methodology-auditor.md Output format (same names, same enums, including direction: retraction)",
-        "Every flag documented in gse-audit.md Options is either implemented in audit.py argparse (engine flags) or explicitly described as skill-level orchestration (LLM-side flags); no documented flag is dead",
-        "The deterministic-vs-LLM division of labor (5 F-jobs engine-side, never spawned) is stated consistently in gse-audit.md frontmatter, category table note, Phase 1, and Phase 2",
-        "python3 gse-one/audit_catalog.py --validate exits 0 on the shipped catalog (run it)",
-        "[bidirectional] If the engine or catalog exposes capabilities undocumented in gse-audit.md (flags, categories, helpers), propose an upward doc update"
+        "Category/type/refinement enums are identical across the audit-jobs.json schema block, audit_catalog.py constants (VALID_CATEGORIES, VALID_TYPES, VALID_REFINEMENTS), gse-meta-audit.md docs ('Customizing the catalog' + sub-agent prompt template), and methodology-auditor.md Output format",
+        "The sub-agent prompt template fields in gse-meta-audit.md Phase 3 match the Finding fields defined in methodology-auditor.md Output format (same names, same enums, including direction: retraction)",
+        "Every flag documented in gse-meta-audit.md Options is either implemented in audit.py argparse (engine flags) or explicitly described as skill-level orchestration (LLM-side flags); no documented flag is dead",
+        "The deterministic-vs-LLM division of labor (5 F-jobs engine-side, never spawned) is stated consistently in gse-meta-audit.md frontmatter, category table note, Phase 1, and Phase 2",
+        "gse-meta-audit-fix.md stays coherent with CLAUDE.md > Post-audit fix workflow (same verdict enum, same audit.py --set-verdicts contract, registry-updated-in-place lifecycle) and gse-meta-audit.md Phase 3.5 remains a stub pointing to /gse-meta-audit-fix (no duplicated protocol body)",
+        "gse-release.md remains a thin checklist over CLAUDE.md > Critical rules > Build pipeline — same 6 steps in the same order, same tag post-condition, no contradicting or additional normative rule",
+        "python3 gse-one/audit_catalog.py --validate exits 0 on the shipped catalog — executed by the ORCHESTRATOR in Phase 2 of gse-meta-audit.md, never by this sub-agent (the methodology-auditor toolset is Read/Grep/Glob, no Bash); the orchestrator pastes the validation result into this job's prompt and the sub-agent reports a finding if it is non-zero or missing",
+        "[bidirectional] If the engine or catalog exposes capabilities undocumented in gse-meta-audit.md (flags, categories, helpers), propose an upward doc update"
       ]
     },
     {

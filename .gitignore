@@ -14,3 +14,10 @@ notes_prompts.txt
 # Python
 __pycache__/
 *.pyc
+
+# Claude Code local artifacts (machine-specific, never committed)
+.claude/settings.local.json
+.claude/worktrees/
+
+# Node (transient tooling, not part of the plugin)
+node_modules/

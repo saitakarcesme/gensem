@@ -2,7 +2,7 @@
 description: "Audit the GSE-One methodology repository for coherence (Categories A-D), strategic quality (Category E), and distribution hygiene (Category F). Orchestrates the Python deterministic engine (audit.py, including the 5 Category F distribution jobs) + 23 parallel LLM sub-agents — 28 jobs total, defined in .claude/audit-jobs.json. Invoked from the root of gensem or a fork."
 ---
 
-# /gse-audit — Methodology audit (coherence + strategic critique)
+# /gse-meta-audit — Methodology audit (coherence + strategic critique)
 
 Arguments: $ARGUMENTS
 
@@ -69,7 +69,7 @@ If any marker is missing, abort with:
 > - `/gse:compound` — end-of-sprint capitalization (Axes 1–3)
 > - `/gse:collect` — artefact inventory
 >
-> To audit gensem (or your fork), run `/gse-audit` from the root of that repo.
+> To audit gensem (or your fork), run `/gse-meta-audit` from the root of that repo.
 
 ### Phase 1 — Deterministic engine (Python)
 
@@ -93,9 +93,12 @@ Read `.claude/audit-jobs.json`:
 
 ```
 python3 gse-one/audit_catalog.py --list
+python3 gse-one/audit_catalog.py --validate
 ```
 
-This gives the list of 28 jobs with their ids, categories, types, and file counts. **Derive the expected job count from this catalog output, never from this document.** Select which jobs to spawn based on the flags:
+The `--validate` run is orchestrator-side by design: the methodology-auditor sub-agents have no Bash tool, so the catalog-validation check of the `audit-system-self-coherence` job is executed HERE, and its result (exit code + output) is pasted into that job's prompt when it is spawned in Phase 3. If validation fails, report the failure and abort — a broken catalog invalidates the whole run.
+
+The `--list` output gives the 28 jobs with their ids, categories, types, and file counts. **Derive the expected job count from this catalog output, never from this document.** Select which jobs to spawn based on the flags:
 
 - Default (no flag): all jobs — Categories A-E as LLM sub-agent spawns; the 5 Category F jobs are already covered by the Phase 1 engine run and are NEVER spawned as sub-agents
 - `--coherence-only`: Categories A, B, C, D as LLM spawns; Category F remains covered by the Phase 1 engine — only Category E is skipped (matches the Options table)
@@ -184,60 +187,11 @@ Begin the audit now. Read only the FILES TO AUDIT (do not expand scope).
 
 If a sub-agent errors, times out, or returns unparseable output, re-spawn that ONE job once with the same prompt before declaring it failed. Jobs still failing after the retry are recorded as skipped in the Phase 4 completion tally — never silently dropped.
 
-### Phase 3.5 — Anti-false-positive verification pass (post-audit, on-demand)
+### Phase 3.5 — Anti-false-positive verification pass (post-audit — see `/gse-meta-audit-fix`)
 
-This phase is NOT part of the initial audit run — it is invoked by the maintainer **after** Phase 5 rendering, when the maintainer decides to address a batch of findings. It is documented here for discoverability because the post-audit fix workflow (CLAUDE.md > Post-audit fix workflow) expects it.
+This phase is NOT part of the initial audit run — it belongs to the **post-audit fix session**, invoked by the maintainer after Phase 5 rendering when they decide to address a batch of findings. Its full operational protocol (per-cluster verification spawns, verdict schema, `audit.py --set-verdicts` persistence, consolidation, bulk user validation, CHANGELOG false-positive documentation) lives in the dedicated command **`.claude/commands/gse-meta-audit-fix.md` — run `/gse-meta-audit-fix`**. The canonical rationale is CLAUDE.md > Post-audit fix workflow.
 
-**When to use it.** Before applying any fix from the audit report, spawn a verification pass to separate real findings from LLM fabrication. Evidence from the 2026-04-22 post-audit session: on the first batch of 12 warning clusters, 4 turned out to be false positives (33%). Skipping verification applies fabricated fixes to the corpus.
-
-**How to spawn it.** For each cluster the maintainer wants to address, spawn ONE methodology-auditor sub-agent with a focused verification prompt:
-
-```
-You are the methodology-auditor (principles 1, 8, 9, 10, 11 apply — evidence, verify-before-report, anti-rigidity, structured verdict, product-vs-source dualism).
-
-MISSION: verify cluster <cluster-id> findings from audit <report-path>.
-For each finding, produce a structured verdict per Principle 10.
-
-FINDINGS TO VERIFY:
-- <finding 1 with location + claim + proposed fix>
-- <finding 2 ...>
-- ...
-
-For each finding, output (YAML):
-  finding_id: <id or brief handle>
-  verdict: CONFIRMED | FALSE_POSITIVE | NEEDS_REFINEMENT | SCOPE_CHANGE
-  verdict_rationale: "<short explanation>"
-  current_state: "<evidence as file:line excerpts>"
-  proposed_fix: "<confirmed, adjusted, or 'no action — false positive'>"
-  anti_rigidity_check: "<is the divergence deliberate? is the fix forcing uniformity?>"
-
-Return YAML list, no preamble. Cite file:line for every claim.
-```
-
-**Parallelism rules.** Clusters are typically independent (each touches a distinct subset of files). Spawn all verification sub-agents in a SINGLE message with multiple Agent tool invocations — same pattern as Phase 3. The user is notified as verdicts come in asynchronously.
-
-**Aggregation.** After all verification sub-agents return, consolidate into three groups:
-
-1. **CONFIRMED** findings — present to the user as an actionable batch with exact file:line changes.
-2. **FALSE_POSITIVE** findings — document each with root cause; if the detector can be fixed at source (e.g., `audit.py` regex, `.claude/audit-jobs.json` check wording), add a work item for the next audit engine refresh.
-3. **NEEDS_REFINEMENT** findings — present the adjusted fix proposal alongside the original for user validation.
-4. **SCOPE_CHANGE** findings — reclassify and note the new scope (defer to release X, bundle with contract change Y).
-
-**Persist verdicts INTO the registry (not a side file).** Write the verdicts to a JSON file (e.g. `/tmp/gse-verdicts.json`: a list of `{finding_id | finding_title, verdict, verdict_rationale, current_state, proposed_fix}`) and apply them in place:
-```
-python3 gse-one/audit.py --set-verdicts /tmp/gse-verdicts.json
-```
-This updates each matched finding's `verdict`/`status` in `_LOCAL/audit/audit.json` (FALSE_POSITIVE → `wontfix` + a `detector_issues[]` entry; SCOPE_CHANGE → `deferred`), sets `meta.verify_run_at`, and recomputes the summary. **Do NOT write a `verify-*.md` file** — the registry is the single source of truth.
-
-**User validation.** Present the consolidated plan as a single structured message with the 4 groups clearly separated. Use Communication style Rule 2 (single-default question) for the final "ok to apply all CONFIRMED + NEEDS_REFINEMENT (with adjustments), skip FALSE_POSITIVE, defer SCOPE_CHANGE". Do NOT apply per-finding — the verification phase is what earns the bulk-validation trust.
-
-**False-positive documentation.** Once fixes are applied and committed, the CHANGELOG of the resolving release MUST document each FALSE_POSITIVE with:
-- What the audit claimed
-- What was actually true
-- Root cause in the detector (if identified)
-- Whether the detector was fixed at source in the same release
-
-This turns the FP log into a learning asset for detector improvement. Three of the five FP detected in v0.51.0 → v0.55.0 were eliminated at source in `audit.py` v0.54.0 (partitive detection, CHANGELOG historical filter, indent-tolerant perspective guideline).
+The one thing to remember at audit time: **never apply fixes straight from the registry** — the 2026-04-22 session measured 33% false positives (4 of 12 clusters) among unverified findings. The verification pass writes verdicts back into the same `_LOCAL/audit/audit.json` registry (no `verify-*.md` side file).
 
 ### Phase 4 — Aggregation, tracking, and dedup
 
@@ -426,18 +380,18 @@ The audit's output is the **single canonical registry** `_LOCAL/audit/audit.json
 ## Invocation examples
 
 ```
-/gse-audit                                  # full: 23 LLM jobs + Python engine (incl. 5 F-jobs)
-/gse-audit --deterministic-only             # fast Python-only (~5s)
-/gse-audit --coherence-only                 # 19 LLM jobs (A-D) + engine F-jobs, skip Category E
-/gse-audit --strategic-only                 # 4 jobs, critique only
-/gse-audit --category D                     # only horizontal clusters (11 jobs)
-/gse-audit --job deploy-cluster             # single cluster audit
-/gse-audit --format json --fail-on error    # CI mode
+/gse-meta-audit                                  # full: 23 LLM jobs + Python engine (incl. 5 F-jobs)
+/gse-meta-audit --deterministic-only             # fast Python-only (~5s)
+/gse-meta-audit --coherence-only                 # 19 LLM jobs (A-D) + engine F-jobs, skip Category E
+/gse-meta-audit --strategic-only                 # 4 jobs, critique only
+/gse-meta-audit --category D                     # only horizontal clusters (11 jobs)
+/gse-meta-audit --job deploy-cluster             # single cluster audit
+/gse-meta-audit --format json --fail-on error    # CI mode
 ```
 
 ## For forkers
 
-When you fork gensem, `.claude/commands/gse-audit.md`, `.claude/agents/methodology-auditor.md`, and `.claude/audit-jobs.json` are inherited via `git clone` — no additional install. Your Claude Code session opened at the fork root will have `/gse-audit` available immediately.
+When you fork gensem, `.claude/commands/gse-meta-audit.md`, `.claude/commands/gse-meta-audit-fix.md`, `.claude/agents/methodology-auditor.md`, `.claude/audit-jobs.json`, and the minimal permission allowlist `.claude/settings.json` are inherited via `git clone` — no additional install. Your Claude Code session opened at the fork root will have `/gse-meta-audit` (and the fix-session companion `/gse-meta-audit-fix`) available immediately.
 
 Use it regularly:
 - Before committing significant changes (catches drift early)
@@ -449,7 +403,7 @@ Use it regularly:
 To add a job (e.g., new cluster for a new subsystem you've added to your fork):
 1. Edit `.claude/audit-jobs.json`, add a new entry following the schema
 2. Validate: `python3 gse-one/audit_catalog.py --validate`
-3. The next `/gse-audit` run will pick it up automatically
+3. The next `/gse-meta-audit` run will pick it up automatically
 
 Schema for each job:
 - `id` — stable identifier (kebab-case)

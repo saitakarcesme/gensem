@@ -4,7 +4,7 @@
 
 Loads `.claude/audit-jobs.json` from the repo root, validates the schema,
 resolves file globs, and exposes helpers for `audit.py` (cluster-aware
-deterministic checks) and for the `/gse-audit` skill orchestrator
+deterministic checks) and for the `/gse-meta-audit` skill orchestrator
 (which spawns one sub-agent per job in parallel).
 
 Usage as a library:

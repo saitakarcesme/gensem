@@ -1267,7 +1267,7 @@ def verify_external_docs() -> list:
     Returns a list of mismatch strings (empty = all aligned). Called by
     verify() as a *warning-level* check — mismatches are reported but do
     NOT fail the build. The definitive numeric-drift audit lives in
-    gse-one/audit.py (/gse-audit Python engine), which can fail on warning
+    gse-one/audit.py (/gse-meta-audit Python engine), which can fail on warning
     via --fail-on warning. This function is an early alert at generate time.
     """
     mismatches = []
@@ -1623,7 +1623,7 @@ def verify() -> None:
     # External docs consistency — warning-level (non-blocking).
     # Build-time early alert: visible but not fatal so prose can evolve
     # (reformulation, localization). Definitive numeric-drift audit is in
-    # gse-one/audit.py (/gse-audit Python engine).
+    # gse-one/audit.py (/gse-meta-audit Python engine).
     ext_mismatches = verify_external_docs()
     print(f"\n  External docs consistency:")
     if ext_mismatches:

@@ -525,12 +525,14 @@ Not for user projects — for those, use `/gse:status`, `/gse:health`, `/gse:rev
 **Slash command (Claude Code, interactive):**
 
 ```
-/gse-audit                    # all 28 jobs (23 LLM in parallel + 5 engine F-jobs)
-/gse-audit --deterministic-only   # fast Python engine only
-/gse-audit --coherence-only   # skip strategic critique (19 LLM jobs + F)
-/gse-audit --strategic-only   # only Category E (4 jobs)
-/gse-audit --job deploy-cluster   # single job
+/gse-meta-audit                    # all 28 jobs (23 LLM in parallel + 5 engine F-jobs)
+/gse-meta-audit --deterministic-only   # fast Python engine only
+/gse-meta-audit --coherence-only   # skip strategic critique (19 LLM jobs + F)
+/gse-meta-audit --strategic-only   # only Category E (4 jobs)
+/gse-meta-audit --job deploy-cluster   # single job
 ```
+
+When the maintainer later decides to address a batch of findings, the dedicated fix-session command `/gse-meta-audit-fix` takes over (verification pass against LLM false positives, in-place verdicts, cluster-based application, release).
 
 Spawns **23 parallel sub-agents** (one per LLM job; the 5 Category F jobs run inside the Python engine), each with its own file list and checks defined in `.claude/audit-jobs.json`. Combines with the Python deterministic engine for a unified report.
 
@@ -548,7 +550,7 @@ python3 gse-one/audit.py --no-save            # stdout only, don't save to disk
 python3 gse-one/audit.py --save-to report.md  # explicit output path
 ```
 
-The commands above produce a **standalone deterministic report**. The `/gse-audit` slash command instead drives the **canonical JSON registry** (see [Report persistence](#report-persistence-default-behavior) below) through these registry commands:
+The commands above produce a **standalone deterministic report**. The `/gse-meta-audit` slash command instead drives the **canonical JSON registry** (see [Report persistence](#report-persistence-default-behavior) below) through these registry commands:
 
 ```bash
 python3 gse-one/audit.py --emit-registry      # archive previous + seed _LOCAL/audit/audit.json with engine findings
@@ -564,7 +566,7 @@ Pure Python stdlib. **Optional dependency:** `pip install pyyaml` enables YAML s
 
 The two flows persist differently (redesigned in v0.75.0 — single canonical registry):
 
-**`/gse-audit` slash command — one living JSON registry.** The full augmented audit (deterministic findings + LLM findings + strategic recommendations) is written to a single canonical artifact:
+**`/gse-meta-audit` slash command — one living JSON registry.** The full augmented audit (deterministic findings + LLM findings + strategic recommendations) is written to a single canonical artifact:
 
 ```
 _LOCAL/audit/audit.json                   # single source of truth (schema_version, stable AUD-<hash> ids)
@@ -628,7 +630,7 @@ python3 gse-one/audit_catalog.py --validate
 python3 gse-one/audit_catalog.py --show deploy-cluster   # inspect one job
 ```
 
-The next `/gse-audit` invocation will automatically include any new job.
+The next `/gse-meta-audit` invocation will automatically include any new job.
 
 ### Deterministic checks (Python engine, 12 categories)
 
@@ -675,7 +677,7 @@ Recommendations (Category E) are **proposals, not defects** — they never trigg
 
 ### Fork inheritance
 
-The `.claude/` directory at repo root is **included via `git clone`**. When you fork gensem, all audit tooling (`commands/gse-audit.md`, `agents/methodology-auditor.md`, `audit-jobs.json`) comes with your fork. No install step. Open your fork in Claude Code → `/gse-audit` available.
+The `.claude/` directory at repo root is **included via `git clone`**. When you fork gensem, all maintainer tooling (`commands/gse-meta-audit.md`, `commands/gse-meta-audit-fix.md`, `commands/gse-release.md`, `agents/methodology-auditor.md`, `audit-jobs.json`, plus the minimal permission allowlist in `settings.json`) comes with your fork. No install step. Open your fork in Claude Code → `/gse-meta-audit` available.
 
 The Python engine (`gse-one/audit.py` + `gse-one/audit_catalog.py`) also travels with the fork.
 

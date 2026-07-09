@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.84.0] - 2026-07-09
+
+### Added
+- Added `/gse-meta-audit-fix` maintainer command operationalizing the post-audit fix workflow (verification pass, in-place verdicts, cluster-based application).
+- Added `/gse-release` maintainer command: thin executable checklist over the Build pipeline critical rule.
+- Added committed `.claude/settings.json` with a minimal permission allowlist (audit engine, catalog, generator, tests).
+
+### Changed
+- Renamed maintainer command `/gse-audit` to `/gse-meta-audit`, removing the name collision with the distributed project activity (`gse-audit` on Cursor/opencode/Codex).
+- Reassigned the catalog-validation check to the audit orchestrator (methodology-auditor sub-agents have no Bash); Phase 2 now runs `audit_catalog.py --validate`.
+- Clarified `agents-structure-uniformity` scope: `gse-orchestrator-lite.md` excluded from archetype-conformance and count checks.
+- Gitignored `.claude/settings.local.json`, `.claude/worktrees/`, `node_modules/`.
+
 ## [0.83.1] - 2026-06-14
 
 *Sandbox launcher inherits the global git identity, so an isolated `$HOME` no longer forces a git-identity prompt.*

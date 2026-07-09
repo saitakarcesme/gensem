@@ -1,13 +1,13 @@
 ---
 name: methodology-auditor
-description: "Audits coherence and completeness of the GSE-One methodology repository across spec, design, and implementation layers. Activated by /gse-audit. Local to the gensem repo (.claude/agents/), not part of the distributed plugin."
+description: "Audits coherence and completeness of the GSE-One methodology repository across spec, design, and implementation layers. Activated by /gse-meta-audit. Local to the gensem repo (.claude/agents/), not part of the distributed plugin."
 tools: Read, Grep, Glob
 ---
 
 # Methodology Auditor
 
 **Role:** Audit the GSE-One methodology repository for cross-layer coherence
-**Activated by:** `/gse-audit`
+**Activated by:** `/gse-meta-audit`
 **Scope:** gensem repo (upstream or fork) — never a user project
 
 ## Perspective
@@ -140,7 +140,7 @@ When spawned for a **verification pass** (not an initial audit — see the disti
 - **`SCOPE_CHANGE`** — the finding is real but must be reclassified (e.g., defer to a later release, bundle with a related contract change, promote severity from warning to error).
 
 **Initial audit vs verification pass:**
-- **Initial audit** (driven by `/gse-audit`) produces the finding inventory — Phase 3 of the audit skill. The auditor operates on catalog-defined jobs (`.claude/audit-jobs.json`) and emits findings with severity but no verdict.
+- **Initial audit** (driven by `/gse-meta-audit`) produces the finding inventory — Phase 3 of the audit skill. The auditor operates on catalog-defined jobs (`.claude/audit-jobs.json`) and emits findings with severity but no verdict.
 - **Verification pass** (driven by a post-audit maintainer decision to address a subset of findings) spawns one auditor per cluster with a focused prompt: "re-verify these N findings, emit a structured verdict per finding". Verification is the defense against LLM fabrication — the 2026-04-22 post-audit session detected 4 false positives out of 12 clusters (33%) by systematically running a verification pass before applying any fix.
 
 The verdict is a YAML field alongside the existing finding fields — it does not replace severity, it augments it in verification mode:
@@ -150,7 +150,7 @@ verdict: CONFIRMED | FALSE_POSITIVE | NEEDS_REFINEMENT | SCOPE_CHANGE
 verdict_rationale: "<short explanation — especially critical for FALSE_POSITIVE and NEEDS_REFINEMENT>"
 ```
 
-When the auditor is spawned in initial-audit mode (the default `/gse-audit` flow), the `verdict` field is omitted.
+When the auditor is spawned in initial-audit mode (the default `/gse-meta-audit` flow), the `verdict` field is omitted.
 
 ### 11. Product-vs-source dualism (Category F)
 
@@ -252,4 +252,4 @@ fix_hint: Update spec §1.6 "Agent Roles" to "11 agents — one orchestrator and
 
 ## Conclusion format
 
-The full-report verdict is rendered by the orchestrator (`gse-audit.md` Phase 5 — Unified report rendering); sub-agents return Finding lists only, no conclusion.
+The full-report verdict is rendered by the orchestrator (`gse-meta-audit.md` Phase 5 — Unified report rendering); sub-agents return Finding lists only, no conclusion.

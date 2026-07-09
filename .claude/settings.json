@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 gse-one/audit.py:*)",
+      "Bash(python3 gse-one/audit_catalog.py:*)",
+      "Bash(python3 gse-one/gse_generate.py:*)",
+      "Bash(python3 gse_generate.py:*)",
+      "Bash(python3 -m pytest:*)"
+    ]
+  }
+}
