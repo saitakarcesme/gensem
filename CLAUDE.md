@@ -239,6 +239,10 @@ When authoring a new activity, pick the pattern that matches the semantic:
 
 Forward-authoring convention for sub-step headings: `#### Step N.M — Title`. Applies to new sub-steps only — existing variant forms stay as-is (no retroactive sweep).
 
+### Vocabulary convention — "Axe N" (capitalization axes) vs "axes" (coach)
+
+The corpus deliberately uses two distinct axis vocabularies (~50 occurrences, 15+ files): **"Axe 1/2/3"** (capitalized, French-origin proper noun) names the three capitalization axes of `/gse:compound` / `/gse:integrate` (project learnings / methodology feedback / competencies) — including machine-ish contract strings (coach moment tags like `/gse:compound Axe 2 feed`, sprint template headings); **"axis/axes"** (lowercase English) names the coach's 8 monitoring axes. The divergence carries semantic information (two systems, never confused) — per Meta-1, do NOT force-align or partially rename. A full "Axe → Axis" rename remains possible as a dedicated contract-change release (tracked in the audit registry recommendations); a partial rename is the only wrong move.
+
 ### Memory policy — in-repo only
 Any project convention, rule, preference, or decision that Claude must remember across sessions for this project MUST be recorded in a versioned file in this repo — typically this `CLAUDE.md`, or another markdown doc under source control. Do NOT write such information to Claude's per-machine auto-memory (`~/.claude/projects/<hash>/memory/`).
 

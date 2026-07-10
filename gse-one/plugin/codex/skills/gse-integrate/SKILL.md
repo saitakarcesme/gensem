@@ -18,6 +18,8 @@ Arguments: $ARGUMENTS
 | `--dry-run`        | Show integration plan without executing |
 | `--help`           | Show this command's usage summary |
 
+> **Vocabulary note (Meta-2).** "Axe 1/2/3" (capitalized) is deliberate corpus-wide vocabulary naming the three **capitalization axes** (project learnings / methodology feedback / competencies) — distinct from the coach's 8 monitoring "axes" (lowercase English). The two systems are never interchangeable; do not "translate" one into the other. Convention documented in CLAUDE.md > Activity path reference conventions area.
+
 **Why standalone:** this activity deliberately stays separate from `/gse:compound` — it must be replayable after the fact (e.g., enable `github.enabled` later and route the pending tickets), support `--dry-run`, and route single axes. See spec §3.9 — Capitalization. (Meta-2 inline note, decision 2026-06-10.)
 
 ## Prerequisites

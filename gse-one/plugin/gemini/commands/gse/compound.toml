@@ -15,6 +15,8 @@ Arguments: $ARGUMENTS
 | `--learn`          | Proactively propose LEARN items for the user |
 | `--help`           | Show this command's usage summary |
 
+> **Vocabulary note (Meta-2).** "Axe 1/2/3" (capitalized) is deliberate corpus-wide vocabulary naming the three **capitalization axes** (project learnings / methodology feedback / competencies) — distinct from the coach's 8 monitoring "axes" (lowercase English). The two systems are never interchangeable; do not "translate" one into the other. Convention documented in CLAUDE.md > Activity path reference conventions area.
+
 ## Prerequisites
 
 Before executing, read:
