@@ -109,6 +109,15 @@ For each worktree recorded in the checkpoint:
    ```
 4. If branch is also missing: report as `[LOST]` — manual intervention needed
 
+#### No worktrees in the checkpoint (branch-only / none strategy)
+
+If `git_state.worktrees[]` is empty, verify the **current branch** instead, with the same grid:
+
+1. Compare `git branch --show-current` with `git_state.current_branch` — if different, note the branch switch in the report.
+2. New commits since pause: `git log {git_state.head}..HEAD --oneline` → any output → `[CHANGED]`, else `[OK]`. (If `git_state.head` is absent — checkpoint predating this field — skip this comparison with an Inform note.)
+3. Uncommitted changes: `git status --porcelain` → any output → additionally `[DIRTY]` (this catches changes left uncommitted by the Pause Commit Gate option 3 or `--no-commit`, as well as edits made outside GSE between sessions).
+4. Include the branch line in the Step 3 report with the same symbols as worktrees.
+
 ### Step 3 — Report Worktree State
 
 Display worktree verification results with symbols:

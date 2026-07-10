@@ -52,7 +52,19 @@ If no worktrees are active (strategy is `branch-only` or `none`):
 1. Check current branch for uncommitted changes
 2. If changes exist, auto-commit with the same convention
 
-Report: "Auto-committed {N} worktree(s) with changes."
+**Commit failure handling** (applies to the worktree loop and the current-branch fallback alike): if a commit is **blocked by a guardrail hook** (exit 2 — e.g., the protect-main hook when the current branch is `main` under `branch-only` strategy) or **fails** for any other reason (user pre-commit hooks, git errors), do NOT proceed silently. Present the **Pause Commit Gate**:
+
+> **Question:** I could not commit your uncommitted changes on `{branch}` ({reason}). How should I secure them before pausing?
+>
+> **Options:**
+> 1. **Rescue branch** (recommended, default) — create `gse/pause-rescue-{YYYY-MM-DD-HHMM}` from the current branch and commit the changes there. Protects the work without touching `main` and without weakening any guardrail.
+> 2. **Sanctioned override** — commit on the current branch after setting `hooks.protect_main: false` in `.gse/config.yaml` (the hook's own sanctioned exception). Only if you deliberately work directly on `main`.
+> 3. **Checkpoint without commit** — save the checkpoint and leave the changes uncommitted in the working tree. An explicit WARNING is recorded (Step 4 report + checkpoint `note`) so `/gse:resume` surfaces it.
+> 4. **Discuss** — explore the options.
+
+A refused or failed commit is NEVER counted in the "Auto-committed {N}" figure.
+
+Report: "Auto-committed {N} worktree(s) with changes." — if any location was left uncommitted (Gate option 3, or `--no-commit` with a dirty state), report instead: "Auto-committed {N}; ⚠ {M} location(s) left with uncommitted changes."
 
 ### Step 2 — Save Checkpoint
 
@@ -65,7 +77,11 @@ Create a checkpoint file at `.gse/checkpoints/checkpoint-{YYYY-MM-DD-HHMM}.yaml`
 - `status_snapshot`: extract `current_phase`, `current_sprint`, `last_activity`, `last_activity_timestamp`, `health.score` from `status.yaml`
 - `backlog_sprint_snapshot.tasks`: for each TASK in current sprint, record `status`, `complexity`, `branch`
 - `git_state.current_branch`: from `git branch --show-current`
+- `git_state.head`: from `git rev-parse HEAD` (verification anchor for `/gse:resume` when no worktrees exist)
+- `git_state.clean`: from `git status --porcelain` on the current branch (`false` if uncommitted changes remain)
 - `git_state.worktrees[]`: from `git worktree list`, for each: `path`, `branch`, `task` (from backlog), `last_commit` (HEAD hash), `clean` (from `git status`)
+
+If Step 1 left uncommitted changes anywhere (Pause Commit Gate option 3, or `--no-commit` with a dirty state), append to `note`: `WARNING: uncommitted changes left on {branch} (commit blocked/skipped at pause)` — `/gse:resume` Step 4 displays checkpoint notes, so the warning resurfaces at resume time.
 
 ### Step 3 — Update Status
 
@@ -84,6 +100,9 @@ After the checkpoint is saved and status updated, the orchestrator invokes the *
 SESSION PAUSED
   Checkpoint: .gse/checkpoints/checkpoint-{YYYY-MM-DD-HHMM}.yaml
   Auto-committed: {N} worktree(s)
+  {if uncommitted changes remain}:
+  ⚠ WARNING: uncommitted changes remain on {branch} — NOT committed.
+    They stay in your working tree and will be surfaced again by /gse:resume.
   Sprint: S{NN} ({current_phase})
   Active tasks: {count}
   

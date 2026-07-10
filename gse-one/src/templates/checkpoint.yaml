@@ -29,6 +29,8 @@ backlog_sprint_snapshot:
 # --- Git state (branches and worktrees) ---
 git_state:
   current_branch: ""
+  head: ""                                # HEAD commit hash of current_branch at pause (verification anchor for branch-only/none)
+  clean: true                             # false if uncommitted changes were left on current_branch at pause
   worktrees: []
     # list of:
     # - path: .worktrees/sprint-01-feat-auth
