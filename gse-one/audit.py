@@ -1904,6 +1904,12 @@ def cmd_backlog_promote() -> int:
                 "id": bid,
                 "title": rec.get("title", ""),
                 "proposal": rec.get("detail", ""),
+                # Decision-ready dossier (maintainer format): filled at
+                # instruction time — problem recap, options with advantages/
+                # drawbacks, recommended solution (validated in session).
+                "problem": "",
+                "options": [],
+                "recommended": None,
                 "impact": rec.get("impact", "none"),
                 "status": "backlog",
                 "origin": {"audit_run_at": run_at, "rec_id": rec.get("id"),
