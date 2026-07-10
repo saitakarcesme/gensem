@@ -84,8 +84,21 @@ class TestForcePushHook(unittest.TestCase):
             self.assertEqual(res.returncode, 2, f"{form!r}: {res.stderr}")
             self.assertIn("EMERGENCY GUARDRAIL", res.stderr)
 
+    def test_blocks_plus_refspec_forms(self):
+        # +refspec is a force push by git semantics — the historical bypass
+        # (audit AUD-26983119): these forms matched neither -f nor --force.
+        for form in (
+            "git push origin +main",
+            "git push origin +feature/x",
+            "git push upstream +main:main",
+        ):
+            res = _run_hook(self.cmd, form, self.dir)
+            self.assertEqual(res.returncode, 2, f"{form!r}: {res.stderr}")
+            self.assertIn("EMERGENCY GUARDRAIL", res.stderr)
+
     def test_allows_benign(self):
-        for form in ("git push", "git push origin main", "ls -f", "echo --force"):
+        for form in ("git push", "git push origin main", "ls -f", "echo --force",
+                     "git push origin main:main"):
             res = _run_hook(self.cmd, form, self.dir)
             self.assertEqual(res.returncode, 0, f"{form!r}: {res.stderr}")
 

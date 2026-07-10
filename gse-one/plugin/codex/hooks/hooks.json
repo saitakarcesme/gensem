@@ -10,7 +10,7 @@
           },
           {
             "type": "command",
-            "command": "python3 -c \"import sys,json,os,re; raw=sys.stdin.read(); d=json.loads(raw) if raw.lstrip().startswith('{') else {}; t=str((d.get('tool_input') or {}).get('command') or ''); bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b)',t)); p=os.path.join('.gse','config.yaml'); cfg=open(p).read() if bad and os.path.isfile(p) else ''; off=bool(re.search(r'^\\s*block_force_push:\\s*false',cfg,re.M)); (bad and not off) and (print('EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). This can cause permanent data loss. Aborting.',file=sys.stderr),sys.exit(2))\""
+            "command": "python3 -c \"import sys,json,os,re; raw=sys.stdin.read(); d=json.loads(raw) if raw.lstrip().startswith('{') else {}; t=str((d.get('tool_input') or {}).get('command') or ''); bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b|\\s\\+\\S)',t)); p=os.path.join('.gse','config.yaml'); cfg=open(p).read() if bad and os.path.isfile(p) else ''; off=bool(re.search(r'^\\s*block_force_push:\\s*false',cfg,re.M)); (bad and not off) and (print('EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease / +refspec). This can cause permanent data loss. Aborting.',file=sys.stderr),sys.exit(2))\""
           }
         ]
       }

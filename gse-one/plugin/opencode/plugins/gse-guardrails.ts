@@ -14,7 +14,7 @@ export const GseGuardrails: Plugin = async () => {
       let cfg = ""
       try { cfg = await Bun.file(".gse/config.yaml").text() } catch { /* no config */ }
 
-      if (/\bgit\s[^|;&]*\bpush\b[^|;&]*(\s-f\b|--force\b)/.test(cmd)) {
+      if (/\bgit\s[^|;&]*\bpush\b[^|;&]*(\s-f\b|--force\b|\s\+\S)/.test(cmd)) {
         if (!/^\s*block_force_push:\s*false/m.test(cfg)) {
           throw new Error(
             "EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). This can cause permanent data loss. Aborting."

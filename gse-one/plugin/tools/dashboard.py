@@ -22,7 +22,6 @@ The dashboard is a single self-contained HTML file showing:
 import argparse
 import html
 import json
-import os
 import re
 import subprocess
 import sys

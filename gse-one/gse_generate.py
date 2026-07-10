@@ -439,12 +439,12 @@ def _guardrail_commands() -> dict:
         "python3 -c \""
         "import sys,json,os,re; "
         + _read_cmd +
-        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b)',t)); "
+        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b|\\s\\+\\S)',t)); "
         "p=os.path.join('.gse','config.yaml'); "
         "cfg=open(p).read() if bad and os.path.isfile(p) else ''; "
         "off=bool(re.search(r'^\\s*block_force_push:\\s*false',cfg,re.M)); "
         "(bad and not off) and (print("
-        "'EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). "
+        "'EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease / +refspec). "
         "This can cause permanent data loss. Aborting.'"
         ",file=sys.stderr),sys.exit(2))"
         "\""
@@ -695,7 +695,7 @@ export const GseGuardrails: Plugin = async () => {{
       let cfg = ""
       try {{ cfg = await Bun.file(".gse/config.yaml").text() }} catch {{ /* no config */ }}
 
-      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b)/.test(cmd)) {{
+      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b|\\s\\+\\S)/.test(cmd)) {{
         if (!/^\\s*block_force_push:\\s*false/m.test(cfg)) {{
           throw new Error(
             "EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). This can cause permanent data loss. Aborting."
@@ -1520,6 +1520,18 @@ def verify() -> None:
                 errors.append(f"gemini: hooks.json missing event '{needed}'")
         if "PreToolUse" not in gm_hooks_obj and "BeforeTool" in gm_hooks_obj:
             print("    hooks event names: OK (BeforeTool/AfterTool)")
+        # Command-content parity with _guardrail_commands() — same contract as
+        # the Codex block above. Evidence bar (Meta-3): the v0.82.2 incident
+        # showed a manually-edited/diverged gemini hooks.json passes the
+        # event-name check while leaving the guardrails silently inert.
+        shared_gm = _guardrail_commands()
+        gm_parity_ok = True
+        for key in ("pre_commit", "pre_force", "post_review", "post_dashboard"):
+            if json.dumps(shared_gm[key])[1:-1] not in gm_hooks_txt:
+                errors.append(f"gemini: hooks.json missing/diverged guardrail '{key}'")
+                gm_parity_ok = False
+        if gm_parity_ok:
+            print("    hooks command parity: OK (4/4 guardrail commands match _guardrail_commands())")
     # No raw {{ left in any command prompt (template-collision guard)
     raw_braces = [n for n in ACTIVITY_NAMES
                   if (gm / "commands" / "gse" / f"{n}.toml").exists()
