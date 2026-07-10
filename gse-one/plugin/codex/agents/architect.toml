@@ -59,7 +59,7 @@ RVW-003 [LOW] — Technology choice lacks alternatives analysis
 RVW-004 [LOW] — Framework isolation opportunity
   perspective: architect
   Location: sprint/S01/design.md, section "Component Decomposition"
-  Detail: The design uses Streamlit across all pages with business logic (budget computation, category aggregation) intermixed in page modules. A framework-free `src/domain/` module would keep that logic testable without Streamlit and replaceable if the UI framework changes.
+  Detail: The design uses Streamlit across all pages with business logic (reading-stats computation, genre aggregation) intermixed in page modules. A framework-free `src/domain/` module would keep that logic testable without Streamlit and replaceable if the UI framework changes.
   Suggestion: Add a DEC — "framework-free domain module" — and flag a policy test enforcing `src/domain/** must not import streamlit`. See policy tests (spec §6.1).
 ```
 

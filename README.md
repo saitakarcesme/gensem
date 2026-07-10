@@ -1,7 +1,7 @@
 <h1 align="center">GSE-One</h1>
 <h2 align="center">Built by AI.<br>Governed by Humans.</h2>
 
-GSE-One is an AI engineering companion that brings structured software development lifecycle (SDLC) management to coding agents. It works as a plugin for **Claude Code**, **Cursor**, and **opencode** — plus **Codex CLI** and **Gemini CLI** (experimental, pending runtime validation), guiding projects through requirements, design, testing, production, review, and knowledge transfer — with adaptive risk analysis and methodology guardrails.
+GSE-One (Generative Software Engineering One) is an AI engineering companion that brings structured software development lifecycle (SDLC) management to coding agents. It works as a plugin for **Claude Code**, **Cursor**, and **opencode** — plus **Codex CLI** and **Gemini CLI** (experimental, pending runtime validation), guiding projects through requirements, design, testing, production, review, and knowledge transfer — with adaptive risk analysis and methodology guardrails.
 
 **Why GSE-One:** it optimizes *trustworthy delegation* — not raw throughput. Three differentiators: **governance** (every decision classified, consequence-projected, journaled, guardrailed), **adaptivity** (calibrates to the human via the HUG profile and three modes), and **AI integrity** (devil's-advocate review + per-claim confidence levels).
 

@@ -79,15 +79,15 @@ For each acceptance criterion (Given/When/Then) in `reqs.md`, create a correspon
 
 Example derivation:
 ```
-REQ-003 — Filter expenses by month
-  Scenario 1: Given 5 expenses across 3 months,
+REQ-003 — Filter books by month read
+  Scenario 1: Given 5 books read across 3 months,
               When filtering by "March 2026",
-              Then only the 2 March expenses appear
+              Then only the 2 March books appear
   
-  → TST-007: filterByMonth returns only March expenses
+  → TST-007: filterByMonth returns only March books
     traces: { validates: [REQ-003] }
 
-  Scenario 2: Given no expenses in April,
+  Scenario 2: Given no books read in April,
               When filtering by "April 2026", 
               Then an empty list is shown
   

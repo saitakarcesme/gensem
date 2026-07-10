@@ -262,7 +262,7 @@ After the canonical test run succeeds and before Finalize, compare what was deli
 
    | Planned | Delivered | Delta |
    |---|---|---|
-   | REQ-001 add expense form | `src/forms/Expense.tsx` | aligned |
+   | REQ-001 add book form | `src/forms/book_form.<ext>` | aligned |
    | (nothing planned) | `db/columns/note.sql` | **ADDED out of scope** |
    | REQ-005 export CSV | — | **OMITTED** |
 

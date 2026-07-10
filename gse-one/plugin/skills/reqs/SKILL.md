@@ -80,7 +80,7 @@ Before formalizing requirements, engage the user in a free-form conversation abo
    - "Are there things it must never do?" (constraints)
    - "How fast should it be? Does it handle sensitive data?" (quality expectations)
 3. **Synthesis** — Reformulate the user's input into 3-5 key themes, separating functional goals from quality expectations:
-   - Functional themes: "Filter expenses by month", "Export to CSV"
+   - Functional themes: "Filter books by month read", "Export to CSV"
    - Quality themes: "Must be fast even with large datasets", "Data must be secure"
 4. **Validation** — Present the synthesis: "The main goals are: [theme 1], [theme 2], [theme 3]. Quality expectations: [quality 1], [quality 2]. Is that right? Anything missing?"
 5. **Persist** — Save the user's original words and the agent's reformulation in the `elicitation_summary` field of the `reqs.md` frontmatter.

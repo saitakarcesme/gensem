@@ -239,6 +239,14 @@ When authoring a new activity, pick the pattern that matches the semantic:
 
 Forward-authoring convention for sub-step headings: `#### Step N.M — Title`. Applies to new sub-steps only — existing variant forms stay as-is (no retroactive sweep).
 
+### Corpus example policy — no live training case studies
+
+Illustrative examples in the distributed corpus (spec, `src/activities/`, `src/agents/`, templates) must NEVER reuse the case study of a current or planned training session, and file paths in examples stay technology-neutral (`<ext>` placeholder) unless the example is specifically about a technology. The canonical running example is a **personal reading tracker** (web app, beginner profile — REQ-003 filter by month, REQ-005 export CSV, TST-007/TST-008).
+
+**Why:** examples in activities/agents are few-shot prompt material — coding agents imitate them. When the corpus example equals the user's actual project, derivation and parroting become indistinguishable: an agent building the training's expense tracker that outputs "Filter expenses by month" may be listening to the learner or copying its own prompt. A distinct canonical domain makes contamination detectable. The 2026 training→methodology capitalization loop deposited the live training case (expense tracker, CalcApp) verbatim into the corpus, and `Expense.tsx` silently biased examples toward React/TS (purity findings A1/A2, fixed 2026-07-10).
+
+**How to apply:** when capitalizing a lesson from a training session (`/gse:compound` Axe 2 feeds, failure-mode notes, new examples), strip the case-study identity — keep the lesson, re-express the illustration in the canonical running example or a neutral domain.
+
 ### Vocabulary convention — "Axe N" (capitalization axes) vs "axes" (coach)
 
 The corpus deliberately uses two distinct axis vocabularies (~50 occurrences, 15+ files): **"Axe 1/2/3"** (capitalized, French-origin proper noun) names the three capitalization axes of `/gse:compound` / `/gse:integrate` (project learnings / methodology feedback / competencies) — including machine-ish contract strings (coach moment tags like `/gse:compound Axe 2 feed`, sprint template headings); **"axis/axes"** (lowercase English) names the coach's 8 monitoring axes. The divergence carries semantic information (two systems, never confused) — per Meta-1, do NOT force-align or partially rename. A full "Axe → Axis" rename remains possible as a dedicated contract-change release (tracked in the audit registry recommendations); a partial rename is the only wrong move.

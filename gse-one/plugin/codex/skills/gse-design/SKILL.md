@@ -85,7 +85,7 @@ For each piece of state (data, selection, session, filter, auth context, etc.) t
 
    | Name | Scope (components) | Mechanism | Rationale | Traces |
    |------|-------------------|-----------|-----------|--------|
-   | `selected_month` | Dashboard, Expenses, Budgets | framework session state (e.g., Streamlit `st.session_state`, React context, URL query param) | Month filter must be consistent across all views | REQ-003, REQ-005 |
+   | `selected_month` | Dashboard, Books, Stats | framework session state (e.g., Streamlit `st.session_state`, React context, URL query param) | Month filter must be consistent across all views | REQ-003, REQ-005 |
    | `current_user` | All pages | session cookie + server-side store | Identity needed everywhere for authorization | REQ-001 |
 
 4. **If no shared state applies** (e.g., CLI tool, pure library, strictly independent components), write the explicit disclaimer:

@@ -72,7 +72,7 @@ How should the UI / feature previews of this sprint be produced?
 
 | Domain | Recommended | Rationale |
 |--------|-------------|-----------|
-| `web` | scaffold (2) | Modern JS/TS scaffolds (Vite, Next.js) are fast; setup cost recovered at PRODUCE. |
+| `web` | scaffold (2) | Scaffold generators for modern web frameworks are fast; setup cost recovered at PRODUCE. |
 | `mobile` | scaffold (2) | RN / Flutter scaffolds deliver the component shell. |
 | `api`, `cli`, `library`, `scientific`, `data` | static (1) | Text description is more informative than an empty scaffold for these domains. |
 
@@ -336,7 +336,7 @@ Note: Previews are lightweight simulations, not prototypes. They are disposable 
 
 Close the activity with a retrospective list of the **Inform-tier decisions** the agent made during preview work (per P7 risk classification). PREVIEW may involve many small autonomous choices — mockup layout conventions, placeholder data choices, interaction stub styles — that were individually low-stakes.
 
-1. **Assemble the list** from the agent's conversation memory for this activity. Examples: *"used mock data with 3 sample expenses"*, *"mocked the dashboard chart with a static SVG rather than a JS library stub"*, *"labeled the placeholder button 'Save' rather than 'Submit'"*.
+1. **Assemble the list** from the agent's conversation memory for this activity. Examples: *"used mock data with 3 sample books"*, *"mocked the dashboard chart with a static SVG rather than a JS library stub"*, *"labeled the placeholder button 'Save' rather than 'Submit'"*.
 
 2. **If the list is empty** (rare — all choices were Gated), display explicitly: *"No inform-tier decisions made this activity — all choices were Gated."* Then conclude PREVIEW.
 

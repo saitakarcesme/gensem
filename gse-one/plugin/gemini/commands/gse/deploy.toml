@@ -37,6 +37,8 @@ Before executing, read:
 > - **Step N inside a Phase** — sub-steps within a Phase (e.g., "Step 3 — Dockerfile template selection" inside Phase 6). This internal numbering resets for each Phase.
 >
 > This two-level hierarchy is specific to `/gse:deploy` — other GSE-One activities use a flat Step sequence. The distinction reflects the idempotent-milestone nature of deployment.
+>
+> **Boundary note (per spec §1.4 — Design Philosophy).** DEPLOY is an opinionated operations module (Hetzner + Coolify + Docker), deliberately outside the technology-neutral methodological core — the stack is a supported choice, not a methodology requirement.
 
 ### Step -1 — Orientation (first-time users only)
 

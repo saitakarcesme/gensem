@@ -33,7 +33,7 @@ You:   French
 
 Agent: [... 4-5 profiling questions: your role, experience, what you want to build ...]
 
-You:   I want to build a personal expense tracker as a web app. I'm a beginner.
+You:   I want to build a personal reading tracker as a web app. I'm a beginner.
 
 Agent: Great! Here's what I'll do:
        1. I'll organize the work into a first cycle (sprint)
@@ -419,6 +419,8 @@ GSE-One is built for a fundamental asymmetry: the **user has the intent** but th
 6. **Methodology self-improvement** — During capitalization (end of sprint), the agent consolidates methodology observations accumulated during the sprint (from review findings tagged `[METHOD-FEEDBACK]`, decisions marked as `type: methodology-deviation`, `status.yaml → activity_history` notes, and conversation context) and offers them back to the user through a **3-option Gate** at the end of COMPOUND Axe 2: *(1) Export as a local feedback document only* — producing a shareable sprint-scoped methodology-feedback artefact the user can send through any channel; *(2) Propose GitHub tickets* — curated, theme-grouped, deduplicated against existing issues, capped by `compound.max_proposed_issues_per_sprint` (default 3), each validated individually by the user before upstream submission via `/gse:integrate` Axe 2; *(3) Both* — export AND propose tickets. **Quality rules** (applied to the ticket path): every proposal must (a) cite at least one concrete example from the sprint (file, timestamp, user quote, or artefact ID), (b) be theme-grouped (one ticket per theme, never per micro-friction), (c) deduplicated against open issues in the upstream repo when `gh` is available (fallback: flag "dedup unverified" if unavailable), (d) respect the per-sprint cap, (e) presented to the user as a per-ticket Gate for validation. Rationale: the methodology evolves best through **curated, high-signal feedback** — not through ticket spam. Users who prefer a lighter channel (email, chat, manual issue) get the local export without any GitHub interaction.
 
 7. **AI integrity safeguards** — The agent is a generative AI with inherent limitations (hallucinations, complaisance, outdated knowledge). GSE-One protects the user from these failures through explicit confidence levels on every recommendation, verification gates for critical assertions, adversarial self-review (devil's advocate), source citation, and active encouragement of user pushback when passive acceptance is detected. (P15, P16)
+
+**Technology neutrality and the deployment module.** The GSE-One core — the 16 principles, the lifecycle, the decision/guardrail system, and every activity except DEPLOY — is technology-neutral: no rule, threshold, or workflow depends on a language, framework, or vendor (corpus examples are illustrative and interchangeable). The DEPLOY activity — together with the deploy-operator agent, the infrastructure references, and the Dockerfile templates — is a deliberately **opinionated operations module** targeting one supported stack (Hetzner + Coolify + Docker) to deliver a guided "from zero to live" experience. It sits outside the methodological core: replacing it (another provider, another PaaS, manual deployment) affects no principle and no other activity. Forks and future editions may swap or extend this module without touching the core.
 
 ### 1.5 Key Concepts
 
@@ -1294,6 +1296,8 @@ The agent also creates backlog items **automatically** during other activities (
 | Command | Activity | Description |
 |---------|----------|-------------|
 | `/gse:deploy` | **Deploy** | Deploy the current project to a Hetzner server via Coolify. Adapts to the user's situation: from zero infrastructure (solo) to a pre-configured shared server (training). Handles provisioning, server hardening, Coolify installation, DNS/SSL, and application deployment in a single guided flow. First-time users are greeted by a **Step -1 Orientation** presenting a 4-option menu — three role options (Solo / Instructor / Learner) that persist the user's role, plus a Skip meta-action that bypasses orientation without persisting a role — and tailors the subsequent flow. Options: `--status` (show state), `--redeploy` (force rebuild), `--destroy` (tear down, double Gate), `--registrar <name>` (registrar-specific DNS instructions), `--training-init` (instructor: generate `.env.training`), `--training-reap` (instructor: clean learner apps), `--silent` (skip Step -1 for scripting), `--help`. See `src/activities/deploy.md` for the full workflow. |
+
+*Boundary note:* DEPLOY is the only technology-opinionated activity in the corpus — see §1.4 — Design Philosophy ("Technology neutrality and the deployment module"). The Hetzner + Coolify + Docker stack is a supported operational choice, not a methodological requirement.
 
 ### 3.9 Capitalization
 

@@ -1,5 +1,5 @@
 <!-- GSE-ONE START -->
-<!-- gse-one-version: 0.85.1 -->
+<!-- gse-one-version: 0.85.2 -->
 # GSE-One Methodology (opencode edition)
 
 This section is managed by GSE-One. Edit `gse-one/src/` and regenerate — do not hand-edit between the START/END markers.
@@ -138,7 +138,7 @@ Rationale: the two mechanisms close the loop between agent autonomy and human go
 
 **Activity Execution Fidelity Invariant.** Whenever the orchestrator executes an activity (direct invocation, inline-routed from another activity, or auto-triggered), the agent MUST: **(1)** open the target activity's source file and apply it literally — paraphrase from memory is forbidden; **(2)** execute every Step in order, with legitimate skip only when the Step is conditional in the source (guard fails), user-overridden, or frontmatter-declared exempt. Agent-driven skips without one of these conditions MUST emit an Inform-tier note: *"[Inform] Skipping /gse:<activity> Step N — <reason>."*
 
-**Failure modes observed (v0.56 pre-fix):** (a) `/gse-go` on an empty project paraphrased HUG Step 0, dropping the 5-option multi-language language-selection QCM (Prop 3 fix); (b) on CalcApp sprint 1 the agent silently skipped `/gse:go` Step 2.6 Dashboard Refresh + Step 2.7 Git Baseline Verification + `/gse:hug` Step 4 Git Initialization + `/gse:produce` canonical test run §6.3 — each silently, no Inform (Prop C fix).
+**Failure modes observed (v0.56 pre-fix):** (a) `/gse-go` on an empty project paraphrased HUG Step 0, dropping the 5-option multi-language language-selection QCM (Prop 3 fix); (b) on a beginner project's sprint 1 the agent silently skipped `/gse:go` Step 2.6 Dashboard Refresh + Step 2.7 Git Baseline Verification + `/gse:hug` Step 4 Git Initialization + `/gse:produce` canonical test run §6.3 — each silently, no Inform (Prop C fix).
 
 **Exempt activities** (display-only, no state mutation): `/gse:status`, `/gse:health`, `/gse:backlog` (display mode), `/gse:audit` (self-verifying — it is the audit).
 
@@ -257,7 +257,7 @@ When `profile.it_expertise` is `beginner`, apply these translation rules to ALL 
 | `npm test` / `pytest` / etc. | Do not show the command — show the results summary |
 | `*.test.ts` / `test_*.py` | Do not mention file names — map to feature descriptions |
 
-**Artefact approval for beginners:** Never present a technical artefact (reqs.md, design.md, test-strategy.md, review.md) directly to a beginner user for approval. Instead: (1) generate the artefact normally for traceability, (2) present a **plain-language summary** of the key decisions (3-5 short sentences, no jargon, no file names, no IDs), (3) ask for confirmation on the summary. The validation binds to the summary, not the file. Example: "Here's what I've planned for the app structure: data stays in the browser, 3 pages for navigation, expenses are sorted by date. Does that sound right?"
+**Artefact approval for beginners:** Never present a technical artefact (reqs.md, design.md, test-strategy.md, review.md) directly to a beginner user for approval. Instead: (1) generate the artefact normally for traceability, (2) present a **plain-language summary** of the key decisions (3-5 short sentences, no jargon, no file names, no IDs), (3) ask for confirmation on the summary. The validation binds to the summary, not the file. Example: "Here's what I've planned for the app structure: data stays in the browser, 3 pages for navigation, books are sorted by date. Does that sound right?"
 
 **Test Campaign Summary rule:** After EVERY canonical test run (spec §6.3) — whether invoked by `/gse:produce` (auto) or `/gse:tests --run` (explicit) — the agent MUST display a summary inline in the chat. For beginners: map test names to feature descriptions from REQS. For experts: show file-level technical summary. This makes the test-driven approach visible — tests are not hidden in files.
 
