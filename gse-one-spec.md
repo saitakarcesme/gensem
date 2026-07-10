@@ -1,4 +1,4 @@
-# GSE-One — Generic Software Engineering One
+# GSE-One — Generative Software Engineering One
 
 **Aliases:** `gse`, `gse-one`, `gseone`
 
@@ -394,7 +394,7 @@ Most AI-native development approaches optimize **throughput**: better prompts, m
 
 ### 1.3 GSE-One Overview
 
-GSE-One (Generic Software Engineering One) is an AI engineering companion that guides users through the full software development lifecycle. It is implemented as a plugin for AI coding agents (Claude Code, Cursor, or any compatible agent-based IDE) and provides 24 commands covering planning, requirements, design, production, quality, delivery, deployment, and capitalization.
+GSE-One (Generative Software Engineering One) is an AI engineering companion that guides users through the full software development lifecycle. It is implemented as a plugin for AI coding agents (Claude Code, Cursor, or any compatible agent-based IDE) and provides 24 commands covering planning, requirements, design, production, quality, delivery, deployment, and capitalization.
 
 GSE-One is designed for users of **any expertise level** — from beginners building their first project to experienced engineers managing complex applications. The agent adapts its language, decisions, and level of autonomy to the user's profile, and progressively transfers knowledge so the user grows alongside the project.
 
@@ -3222,7 +3222,7 @@ If you are new to GSE-One, these 20 concepts form the minimum vocabulary to get 
 
 | Term | Definition |
 |------|------------|
-| **GSE-One** | Generic Software Engineering One — the methodology and plugin name |
+| **GSE-One** | Generative Software Engineering One — the methodology and plugin name |
 | **Artefact** | Any project file: code, requirements, test, design document, plan, decision, configuration |
 | **Sprint** | A complexity-budgeted iteration producing one or more artefact increments. Ends when budget is consumed or tasks delivered, not by calendar |
 | **FR** | Functional Requirement |

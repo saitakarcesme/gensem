@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.85.1] - 2026-07-10
+
+### Fixed
+- Corrected the GSE-One expansion corpus-wide: "Generic Software Engineering One" is now "Generative Software Engineering One" (spec title, spec §1.2, spec glossary, orchestrator and orchestrator-lite identities). The name had been wrong since the initial commit.
+
 ## [0.85.0] - 2026-07-10
 
 *Full v0.84.0 meta-audit fix train: 126 verified findings resolved (0 false positives across a 24-agent verification pass). Detailed training-alignment report: `docs/post-audit-reports/2026-07-10-audit-v0.84.0-fix-train.md`.*
