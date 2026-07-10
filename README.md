@@ -632,7 +632,7 @@ python3 gse-one/audit_catalog.py --show deploy-cluster   # inspect one job
 
 The next `/gse-meta-audit` invocation will automatically include any new job.
 
-### Deterministic checks (Python engine — 12 coherence categories, plus the 5 Category F categories listed above)
+### Deterministic checks (Python engine — 12 coherence categories, plus the 5 Category F categories listed above and the `audit_layout` organization-hygiene check)
 
 Complement the LLM jobs with fast syntactic/structural checks:
 

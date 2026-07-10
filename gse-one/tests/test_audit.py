@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -223,6 +224,8 @@ class TestAuditCategoriesPresent(unittest.TestCase):
             # Category F — Distribution hygiene (plugin-as-product invariants)
             "plugin_language", "plugin_secrets", "plugin_personal",
             "plugin_debug", "plugin_runtime_paths",
+            # Audit-directory organization hygiene (registry/backlog/archive)
+            "audit_layout",
         }
         actual = set(audit.CATEGORIES)
         self.assertEqual(expected, actual)
@@ -278,6 +281,77 @@ class TestCheckpointCoherence(unittest.TestCase):
             [], [f.detail for f in drift],
             "checkpoint.yaml / pause.md / resume.md / status.yaml drifted",
         )
+
+
+class TestBacklogRegistry(unittest.TestCase):
+    """Durable backlog split (backlog.json) — id stability, promote dedup,
+    and the audit_layout hygiene category."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        base = Path(self.tmp.name)
+        self._saved = (audit.AUDIT_DIR, audit.REGISTRY_PATH,
+                       audit.ARCHIVE_DIR, audit.BACKLOG_PATH)
+        audit.AUDIT_DIR = base
+        audit.REGISTRY_PATH = base / "audit.json"
+        audit.ARCHIVE_DIR = base / "archive"
+        audit.BACKLOG_PATH = base / "backlog.json"
+
+    def tearDown(self):
+        (audit.AUDIT_DIR, audit.REGISTRY_PATH,
+         audit.ARCHIVE_DIR, audit.BACKLOG_PATH) = self._saved
+        self.tmp.cleanup()
+
+    def _seed_registry(self):
+        reg = {
+            "schema_version": audit.REGISTRY_SCHEMA_VERSION,
+            "meta": {"audit_run_at": "2026-07-10T00:00:00Z", "version": "test"},
+            "summary": {}, "clusters": [], "findings": [],
+            "recommendations": [
+                {"id": "REC-aaaaaaaa", "job": "j1", "category": "E",
+                 "title": "Improve X calibration", "detail": "do X",
+                 "impact": "low", "direction": "none", "status": "proposed"},
+                {"id": "REC-bbbbbbbb", "job": "j2", "category": "E",
+                 "title": "Rejected idea", "detail": "no",
+                 "impact": "low", "direction": "none", "status": "rejected"},
+            ],
+            "detector_issues": [],
+        }
+        audit._save_registry(reg)
+
+    def test_bkl_id_stable_and_normalized(self):
+        self.assertEqual(audit.bkl_id("Improve X calibration"),
+                         audit.bkl_id("improve   x CALIBRATION"))
+
+    def test_promote_dedups_and_skips_rejected(self):
+        self._seed_registry()
+        self.assertEqual(audit.cmd_backlog_promote(), 0)
+        bl = audit._load_backlog()
+        self.assertEqual(len(bl["items"]), 1)
+        self.assertEqual(bl["items"][0]["status"], "backlog")
+        self.assertEqual(bl["items"][0]["origin"]["rec_id"], "REC-aaaaaaaa")
+        # second promotion: no duplicate
+        self.assertEqual(audit.cmd_backlog_promote(), 0)
+        self.assertEqual(len(audit._load_backlog()["items"]), 1)
+        # registry rec linked
+        reg = audit._load_registry()
+        self.assertEqual(reg["recommendations"][0]["backlog_id"],
+                         audit.bkl_id("Improve X calibration"))
+
+    def test_layout_flags_relocated_registry_and_stays_clean(self):
+        audit.AUDIT_DIR.mkdir(exist_ok=True)
+        (audit.AUDIT_DIR / "audit.json").write_text("{}")
+        (audit.AUDIT_DIR / "backlog.json").write_text("{}")
+        audit.ARCHIVE_DIR.mkdir()
+        (audit.ARCHIVE_DIR / "audit-20260101000000-v0.1.0.json").write_text("{}")
+        clean = audit.audit_layout()
+        self.assertEqual([f.severity for f in clean], ["info"])
+        stray = audit.AUDIT_DIR / "260613-2055"
+        stray.mkdir()
+        (stray / "audit.json").write_text("{}")
+        sevs = {f.title: f.severity for f in audit.audit_layout()}
+        self.assertIn("warning",
+                      [s for t, s in sevs.items() if "260613-2055" in t])
 
 
 if __name__ == "__main__":

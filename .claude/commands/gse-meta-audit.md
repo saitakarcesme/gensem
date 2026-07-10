@@ -81,7 +81,7 @@ python3 gse-one/audit.py --emit-registry
 
 This writes `_LOCAL/audit/audit.json` (`schema_version` + engine findings, each with a stable `AUD-<hash>` id, `verdict:"detected"`, `status:"open"`). The skill folds the LLM findings into this **same** registry in Phase 4 via `audit.py --merge`. The registry is the SINGLE output artifact (see "Audit output contract" in CLAUDE.md) — do NOT save separate `audit-<ts>.md` / `latest.md` / `verify-*.md` files. For a quick stdout-only check (e.g. `--deterministic-only`), `python3 gse-one/audit.py --no-save --format json` still works.
 
-This returns the 17 deterministic categories — 12 coherence categories (version, file integrity, plugin parity, cross-refs, numeric, links, git, Python quality, template schema, TODOs, test coverage, freshness) + the 5 Category F distribution-hygiene categories (`plugin_language`, `plugin_secrets`, `plugin_personal`, `plugin_debug`, `plugin_runtime_paths`), which fully cover the catalog's 5 F-jobs. Retain the JSON output for Phase 4 aggregation.
+This returns the 18 deterministic categories — 12 coherence categories (version, file integrity, plugin parity, cross-refs, numeric, links, git, Python quality, template schema, TODOs, test coverage, freshness) + the 5 Category F distribution-hygiene categories (`plugin_language`, `plugin_secrets`, `plugin_personal`, `plugin_debug`, `plugin_runtime_paths`), which fully cover the catalog's 5 F-jobs, + `audit_layout` (organization hygiene of `_LOCAL/audit/` — flags manually relocated registries and stray artifacts). Retain the JSON output for Phase 4 aggregation.
 
 If `--deterministic-only` is passed: skip Phase 2-3, jump to Phase 4 — Aggregation, then Phase 5 — Unified report rendering.
 
@@ -366,7 +366,9 @@ The audit's output is the **single canonical registry** `_LOCAL/audit/audit.json
    python3 -c "import json;r=json.load(open('_LOCAL/audit/audit.json'));print(r['summary'])"
    ```
 
-4. **Report to the user** the single artifact path:
+4. **Backlog linkage:** recommendations the maintainer wants to keep beyond this run are promoted to the durable backlog: `python3 gse-one/audit.py --backlog-promote` (dedup by stable BKL id; `--merge` auto-links re-discovered recommendations to existing items). `_LOCAL/audit/backlog.json` is updated in place across runs — never archived, never relocated.
+
+5. **Report to the user** the single artifact path:
    > Audit registry written to `_LOCAL/audit/audit.json` (N findings, M recommendations). Render a human view with `python3 gse-one/audit.py --render`.
 
 **Markdown on demand only:** to show a human view, `python3 gse-one/audit.py --render` (default: a throwaway `/tmp/gse-audit-<ts>.md`; or `--out PATH`, or render to chat). Never write `audit-<ts>.md` / `latest.md` into the repo.

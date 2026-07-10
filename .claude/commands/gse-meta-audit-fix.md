@@ -84,6 +84,10 @@ Close with a single-default question (Communication style Rule 2): "ok to apply 
 
 Apply fixes **grouped by cluster theme** (same root cause), not by file. A cluster may touch multiple files atomically. Update each processed finding's `status`/`resolution` in the registry as you go. Isolate contract changes (signatures, return shapes, state schemas) into their own dedicated release — never bundle with unrelated fixes (v0.55.0 pattern).
 
+### Phase 5.5 — Backlog closure
+
+Recommendations that survive the session as future work are promoted to the durable backlog (`python3 gse-one/audit.py --backlog-promote`), and items whose chantier was actually done in this session are closed (`--backlog-set BKL-ID=done`). The backlog (`_LOCAL/audit/backlog.json`) is the cross-run registry — see CLAUDE.md > Audit output contract.
+
 ### Phase 6 — Release
 
 Run the full build pipeline (see `/gse-release` and CLAUDE.md > Build pipeline): version bump per the matrix in CLAUDE.md > Post-audit fix workflow Phase 4, CHANGELOG entry, generate `--verify`, commit, push, tag. The CHANGELOG of the resolving release MUST document each FALSE_POSITIVE: what was claimed, what was true, detector root cause, whether the detector was fixed at source in the same release.

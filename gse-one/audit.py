@@ -5,6 +5,9 @@
 Usage:
     Registry commands (canonical /gse-meta-audit flow — single JSON registry):
         python3 gse-one/audit.py --emit-registry       # archive previous + seed _LOCAL/audit/audit.json
+        python3 gse-one/audit.py --backlog-promote     # recommendations -> durable _LOCAL/audit/backlog.json
+        python3 gse-one/audit.py --backlog-list        # list backlog items with age in audit runs
+        python3 gse-one/audit.py --backlog-set BKL-xxxxxxxx=in_progress
         python3 gse-one/audit.py --merge <file>        # fold in LLM findings/recommendations/clusters
         python3 gse-one/audit.py --set-verdicts <file> # apply Phase 3.5 verdicts in place
         python3 gse-one/audit.py --render [--out PATH] # render registry to throwaway markdown (/tmp)
@@ -94,6 +97,8 @@ CATEGORIES = [
     "plugin_personal",
     "plugin_debug",
     "plugin_runtime_paths",
+    # Audit-directory organization hygiene (registry/backlog/archive contract)
+    "audit_layout",
 ]
 
 
@@ -1441,6 +1446,67 @@ def audit_plugin_runtime_paths() -> list:
 # ---------------------------------------------------------------------------
 
 
+def _rel_or_abs(p: Path) -> str:
+    try:
+        return str(p.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(p)
+
+
+def audit_layout() -> list:
+    """Audit-directory organization hygiene: _LOCAL/audit/ must contain only
+    the canonical artifacts — audit.json (working registry, in-place lifecycle),
+    backlog.json (durable work registry, never archived/relocated), and
+    archive/ (tool-managed flat audit-<ts>-v<version>.json snapshots).
+    Manual relocation of the working registry into ad-hoc dated folders breaks
+    the in-place fix-session lifecycle and steals the regression-diff baseline."""
+    findings = []
+    if not AUDIT_DIR.exists():
+        return findings
+    expected_files = {"audit.json", "backlog.json"}
+    expected_dirs = {"archive"}
+    for entry in sorted(AUDIT_DIR.iterdir()):
+        name = entry.name
+        if name.startswith("."):
+            continue
+        if (entry.is_file() and name in expected_files) or (entry.is_dir() and name in expected_dirs):
+            continue
+        relocated = (entry.is_dir() and (entry / "audit.json").exists()) or name.startswith("audit")
+        findings.append(Finding(
+            "audit_layout",
+            "warning" if relocated else "info",
+            f"unexpected entry in _LOCAL/audit/: {name}{'/' if entry.is_dir() else ''}",
+            "The audit directory contract expects only audit.json (working registry), "
+            "backlog.json (durable backlog) and archive/ (tool-managed snapshots)."
+            + (" This looks like a manually relocated registry — manual moves break the "
+               "in-place lifecycle and the regression-diff baseline."
+               if relocated else " Stray artifacts drift from the audit-output contract."),
+            "Keep per-run history in archive/ (written automatically by --emit-registry); "
+            "never relocate audit.json or backlog.json.",
+            location=_rel_or_abs(entry),
+        ))
+    if ARCHIVE_DIR.exists():
+        for entry in sorted(ARCHIVE_DIR.iterdir()):
+            if entry.name.startswith("."):
+                continue
+            if entry.is_file() and entry.name.startswith("audit-") and entry.name.endswith(".json"):
+                continue
+            findings.append(Finding(
+                "audit_layout", "info",
+                f"unexpected entry in _LOCAL/audit/archive/: {entry.name}",
+                "archive/ holds only tool-written audit-<ts>-v<version>.json snapshots.",
+                "Relocate or delete the stray entry.",
+                location=_rel_or_abs(entry),
+            ))
+    if not findings:
+        findings.append(Finding(
+            "audit_layout", "info",
+            "audit directory layout conforms to the contract",
+            "_LOCAL/audit/ contains only audit.json / backlog.json / archive/.",
+        ))
+    return findings
+
+
 _CATEGORY_FUNCS = {
     "version": audit_version,
     "file_integrity": audit_file_integrity,
@@ -1459,6 +1525,7 @@ _CATEGORY_FUNCS = {
     "plugin_personal": audit_plugin_personal,
     "plugin_debug": audit_plugin_debug,
     "plugin_runtime_paths": audit_plugin_runtime_paths,
+    "audit_layout": audit_layout,
 }
 
 
@@ -1591,6 +1658,13 @@ AUDIT_DIR = REPO_ROOT / "_LOCAL" / "audit"
 REGISTRY_PATH = AUDIT_DIR / "audit.json"
 ARCHIVE_DIR = AUDIT_DIR / "archive"
 
+# Durable work registry (split from audit.json — 2026-07-10 contract amendment):
+# audit.json is a per-run photograph (archived wholesale on each --emit-registry);
+# backlog.json is the durable cross-run work registry, updated IN PLACE and
+# never archived or relocated. Items carry solution proposals + provenance.
+BACKLOG_SCHEMA_VERSION = "1.0"
+BACKLOG_PATH = AUDIT_DIR / "backlog.json"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1612,6 +1686,25 @@ def finding_id(category: str, file: str, title: str) -> str:
 def rec_id(job: str, title: str) -> str:
     import hashlib
     return "REC-" + hashlib.sha1(f"{job}|{_norm(title)}".encode("utf-8")).hexdigest()[:8]
+
+
+def bkl_id(title: str) -> str:
+    """Stable backlog-item id from the normalized title (dedups re-discoveries)."""
+    import hashlib
+    return "BKL-" + hashlib.sha1(_norm(title).encode("utf-8")).hexdigest()[:8]
+
+
+def _load_backlog() -> dict:
+    if BACKLOG_PATH.exists():
+        return json.loads(BACKLOG_PATH.read_text(encoding="utf-8"))
+    return {"schema_version": BACKLOG_SCHEMA_VERSION, "updated_at": None, "items": []}
+
+
+def _save_backlog(bl: dict) -> None:
+    AUDIT_DIR.mkdir(parents=True, exist_ok=True)
+    bl["updated_at"] = _now_iso()
+    BACKLOG_PATH.write_text(json.dumps(bl, indent=2, ensure_ascii=False) + "\n",
+                            encoding="utf-8")
 
 
 def _coerce_finding(d: dict) -> dict:
@@ -1770,6 +1863,15 @@ def cmd_merge(path: str) -> int:
         if r["id"] not in rby:
             reg["recommendations"].append(r)
             rby[r["id"]] = r
+    # Cross-reference against the durable backlog: a re-discovered
+    # recommendation whose normalized title matches an existing backlog item
+    # is linked (backlog_id), not duplicated as new work.
+    if BACKLOG_PATH.exists():
+        bl_ids = {it["id"] for it in _load_backlog().get("items", [])}
+        for r in reg["recommendations"]:
+            bid = bkl_id(r.get("title", ""))
+            if bid in bl_ids and not r.get("backlog_id"):
+                r["backlog_id"] = bid
     if add.get("clusters"):
         reg["clusters"] = add["clusters"]
     if add.get("meta"):
@@ -1779,6 +1881,99 @@ def cmd_merge(path: str) -> int:
     print(f"merged: {len(reg['findings'])} findings, "
           f"{len(reg['recommendations'])} recommendations", file=sys.stderr)
     return 0
+
+
+def cmd_backlog_promote() -> int:
+    """Promote the current registry's recommendations into the durable backlog
+    (backlog.json). Dedup by stable BKL id (normalized title); each promoted
+    registry rec gets status 'backlog' + a backlog_id pointer. Rejected recs
+    are skipped."""
+    reg = _load_registry()
+    bl = _load_backlog()
+    by_id = {it["id"]: it for it in bl["items"]}
+    promoted = linked = 0
+    run_at = reg.get("meta", {}).get("audit_run_at")
+    for rec in reg.get("recommendations", []):
+        if rec.get("status") == "rejected":
+            continue
+        bid = bkl_id(rec.get("title", ""))
+        if bid in by_id:
+            linked += 1
+        else:
+            by_id[bid] = {
+                "id": bid,
+                "title": rec.get("title", ""),
+                "proposal": rec.get("detail", ""),
+                "impact": rec.get("impact", "none"),
+                "status": "backlog",
+                "origin": {"audit_run_at": run_at, "rec_id": rec.get("id"),
+                           "job": rec.get("job", "")},
+                "created_at": _now_iso(),
+                "decided_at": None,
+                "resolution": {"commit": None, "release": None},
+            }
+            bl["items"].append(by_id[bid])
+            promoted += 1
+        rec["status"] = "backlog"
+        rec["backlog_id"] = bid
+    _save_backlog(bl)
+    _recompute_summary(reg)
+    _save_registry(reg)
+    print(f"backlog: {promoted} promoted, {linked} already tracked; "
+          f"total {len(bl['items'])} items", file=sys.stderr)
+    return 0
+
+
+def cmd_backlog_list() -> int:
+    """List durable backlog items with their age in audit runs (how many
+    archived registries postdate the item's creation)."""
+    import re as _re
+    bl = _load_backlog()
+    archives = sorted(ARCHIVE_DIR.glob("audit-*.json")) if ARCHIVE_DIR.exists() else []
+
+    def _age(created: str) -> int:
+        ts = _re.sub(r"[^0-9]", "", created or "")[:14]
+        if not ts:
+            return 0
+        n = 0
+        for a in archives:
+            m = _re.match(r"audit-(\d+)", a.name)
+            if m and m.group(1)[:14] > ts:
+                n += 1
+        return n
+
+    if not bl["items"]:
+        print("backlog is empty")
+        return 0
+    print(f"{'id':12s} {'status':12s} {'impact':8s} {'age':>3s}  title")
+    for it in bl["items"]:
+        print(f"{it['id']:12s} {it.get('status', '?'):12s} "
+              f"{it.get('impact', '—'):8s} {_age(it.get('created_at')):>3d}  "
+              f"{it.get('title', '')[:90]}")
+    return 0
+
+
+def cmd_backlog_set(spec: str) -> int:
+    """Update a backlog item's status: --backlog-set BKL-xxxxxxxx=in_progress
+    (statuses: proposed | backlog | accepted | in_progress | done | rejected)."""
+    if "=" not in spec:
+        print("error: expected BKL-<id>=<status>", file=sys.stderr)
+        return 2
+    bid, status = spec.split("=", 1)
+    allowed = {"proposed", "backlog", "accepted", "in_progress", "done", "rejected"}
+    if status not in allowed:
+        print(f"error: status must be one of {sorted(allowed)}", file=sys.stderr)
+        return 2
+    bl = _load_backlog()
+    for it in bl["items"]:
+        if it["id"] == bid:
+            it["status"] = status
+            it["decided_at"] = _now_iso()
+            _save_backlog(bl)
+            print(f"{bid} -> {status}", file=sys.stderr)
+            return 0
+    print(f"error: no backlog item {bid}", file=sys.stderr)
+    return 2
 
 
 def cmd_set_verdicts(path: str) -> int:
@@ -1898,6 +2093,37 @@ def render_registry_markdown(reg: dict) -> str:
         for d in di:
             a(f"- {d.get('finding_id')}: {d.get('fix')}")
         a("")
+    # Durable backlog view (cross-run work registry — see BACKLOG_PATH)
+    if BACKLOG_PATH.exists():
+        import re as _re
+        bl = _load_backlog()
+        archives = sorted(ARCHIVE_DIR.glob("audit-*.json")) if ARCHIVE_DIR.exists() else []
+
+        def _bl_age(created: str) -> int:
+            ts = _re.sub(r"[^0-9]", "", created or "")[:14]
+            if not ts:
+                return 0
+            n = 0
+            for arc in archives:
+                mm = _re.match(r"audit-(\d+)", arc.name)
+                if mm and mm.group(1)[:14] > ts:
+                    n += 1
+            return n
+
+        open_items = [i for i in bl.get("items", [])
+                      if i.get("status") in ("proposed", "backlog", "accepted", "in_progress")]
+        a("")
+        a("---")
+        a("")
+        a(f"## Backlog (durable — {len(open_items)} open of {len(bl.get('items', []))} items)")
+        a("")
+        for it in open_items:
+            age = _bl_age(it.get("created_at"))
+            age_note = f" · carried across {age} audit run(s)" if age else ""
+            a(f"- **[{it.get('status')}] {it['id']}** ({it.get('impact', '—')}){age_note} — {it.get('title', '')}")
+        if not open_items:
+            a("(no open backlog items)")
+        a("")
     return "\n".join(L) + "\n"
 
 
@@ -1981,6 +2207,22 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         default=None,
         help="Merge additions (findings/recommendations/clusters/meta JSON) into the registry.",
+    )
+    p.add_argument(
+        "--backlog-promote",
+        action="store_true",
+        help="Promote the registry's recommendations into the durable backlog "
+             "(_LOCAL/audit/backlog.json), dedup by stable BKL id.",
+    )
+    p.add_argument(
+        "--backlog-list",
+        action="store_true",
+        help="List durable backlog items with age in audit runs.",
+    )
+    p.add_argument(
+        "--backlog-set",
+        metavar="BKL-ID=STATUS",
+        help="Update a backlog item status (proposed|backlog|accepted|in_progress|done|rejected).",
     )
     p.add_argument(
         "--set-verdicts",
@@ -2130,6 +2372,12 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_merge(args.merge)
     if args.set_verdicts:
         return cmd_set_verdicts(args.set_verdicts)
+    if args.backlog_promote:
+        return cmd_backlog_promote()
+    if args.backlog_list:
+        return cmd_backlog_list()
+    if args.backlog_set:
+        return cmd_backlog_set(args.backlog_set)
 
     # Context detection: must be in a gensem-like repo
     if not (REPO_ROOT / "gse-one-spec.md").exists():
