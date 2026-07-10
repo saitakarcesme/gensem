@@ -165,24 +165,41 @@ class InstallTracker:
                 print(f"  {yellow('Completed with warnings. See details above.')}")
 
         print()
-        # Per-platform invocation syntax differs (CLAUDE.md "Command Reference"):
-        # Claude/Gemini use /gse:go, Cursor/opencode use /gse-go, Codex skills are
-        # invoked via $gse-go (or /skills) — NOT a colon/slash command.
-        hint = {
-            "claude": "/gse:go",
-            "gemini": "/gse:go",
-            "cursor": "/gse-go",
-            "opencode": "/gse-go",
-            "codex": "$gse-go   (or /skills to browse)",
-        }
-        ok_plats = []
-        for plat, _, _, _, status, _ in self.rows:
-            if status == "OK" and plat not in ok_plats:
-                ok_plats.append(plat)
+        # Per-platform AND per-mode invocation syntax (README "What gets installed"):
+        # Claude plugin mode exposes /gse:go, Claude no-plugin exposes /gse-go;
+        # Cursor/opencode use /gse-go in both modes; Gemini uses /gse:go; Codex
+        # skills are invoked via $gse-go (or /skills) — NOT a colon/slash command.
+        # Tracker rows store display names ("Claude Code") in most paths and
+        # lowercase names in the sandbox path — normalize before lookup.
+        def _norm_plat(name):
+            n = name.lower()
+            if "claude" in n:
+                return "claude"
+            for k in ("cursor", "opencode", "codex", "gemini"):
+                if k in n:
+                    return k
+            return n
+
+        def _go_hint(plat_key, mode):
+            if plat_key == "claude":
+                return "/gse:go" if mode in ("plugin", "sandbox") else "/gse-go"
+            if plat_key in ("cursor", "opencode"):
+                return "/gse-go"
+            if plat_key == "gemini":
+                return "/gse:go"
+            if plat_key == "codex":
+                return "$gse-go   (or /skills to browse)"
+            return "/gse:go"
+
+        ok_plats = []  # list of (display_name, plat_key, mode)
+        for plat, mode, _, _, status, _ in self.rows:
+            key = _norm_plat(plat)
+            if status == "OK" and all(k != key for _, k, _ in ok_plats):
+                ok_plats.append((plat, key, mode))
         if ok_plats:
             print(f"  {cyan('Next step')} — start GSE-One:")
-            for p in ok_plats:
-                print(f"       {bold(p)}: type {bold(hint.get(p, '/gse:go'))}")
+            for disp, key, mode in ok_plats:
+                print(f"       {bold(disp)}: type {bold(_go_hint(key, mode))}")
         else:
             print(f"  {cyan('Next step:')} Type {bold('/gse:go')} in your coding agent to start.")
         print()

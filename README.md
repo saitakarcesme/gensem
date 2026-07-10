@@ -94,7 +94,7 @@ The curl installer reads five environment variables that override auto-detection
 | `GSE_MODE` | `plugin` \| `no-plugin` \| `local` \| `sandbox` | Plugin, or copy artifacts into a project's `.claude/` / `.cursor/` / `.opencode/` / `.codex/` / `.gemini/`. `local` = no-plugin **+ project registry, nothing under `$HOME`** (self-contained / committable). `sandbox` = **isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher** to start the agent fully isolated (codex/gemini/opencode) |
 | `GSE_SCOPE` | `project` \| `local` \| `user` | Claude Code plugin scope only (default: `user`); ignored by Cursor, opencode, Codex, and Gemini |
 | `GSE_VERSION` | `latest` \| `vX.Y.Z` | Release tag to install; `latest` resolves via the GitHub API (default: `latest`) |
-| `GSE_PROJECT_DIR` | path | Target directory for `no-plugin` mode (default: current working directory) |
+| `GSE_PROJECT_DIR` | path | Target directory for `no-plugin` / `local` / `sandbox` modes (default: current working directory; relative paths are resolved against the invocation directory) |
 
 Example — pin to an explicit version and install only for Cursor:
 

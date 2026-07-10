@@ -12,7 +12,7 @@
 #   GSE_MODE       plugin|no-plugin|local|sandbox    (default: no-plugin; 'local' = project registry, nothing under $HOME; 'sandbox' = isolated $HOME in .gse-sandbox + .gse-sandbox/run launcher, codex/gemini/opencode only)
 #   GSE_SCOPE      project|local|user                (default: user)
 #   GSE_VERSION    vX.Y.Z|latest                     (default: latest)
-#   GSE_PROJECT_DIR /abs/path                        (no-plugin only)
+#   GSE_PROJECT_DIR /path (abs or relative)          (no-plugin/local/sandbox; default: current dir; relative paths resolved against the invocation dir)
 #   GSE_LOCAL_TARBALL /abs/path/gse-one.tar.gz       (maintainer-only: skip
 #                                                     network fetch and use a
 #                                                     local tarball instead;
@@ -157,9 +157,19 @@ prepare() {
     plat_flag=$(detect_platform_flag)
     scope="${GSE_SCOPE:-user}"
     project_dir="${GSE_PROJECT_DIR:-}"
-    if [ "$mode" = "no-plugin" ] && [ -z "$project_dir" ]; then
+    if [ "$mode" != "plugin" ] && [ -z "$project_dir" ]; then
         project_dir=$(pwd)
     fi
+    # Absolutize a user-supplied relative path against the invocation dir —
+    # install.py runs with CWD inside the throwaway extraction dir, so a
+    # relative path forwarded verbatim would resolve there and be wiped.
+    case "$project_dir" in
+        ""|/*) ;;
+        *)
+            mkdir -p -- "$project_dir" || fail "cannot create project dir: $project_dir"
+            project_dir=$(CDPATH= cd -- "$project_dir" && pwd)
+            ;;
+    esac
 
     target_tag=$(resolve_version)
     tmp=$(make_tmp)
@@ -219,7 +229,7 @@ subcmd_uninstall() {
     info "Uninstalling GSE-One (platforms: ${plat_flag}, mode: ${mode}, version: ${target_tag})"
 
     set -- --uninstall --platform "$plat_flag" --mode "$mode"
-    if [ "$mode" = "no-plugin" ] && [ -n "$project_dir" ]; then
+    if [ "$mode" != "plugin" ] && [ -n "$project_dir" ]; then
         set -- "$@" --project-dir "$project_dir"
     fi
 
