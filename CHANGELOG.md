@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.85.0] - 2026-07-10
+
+*Full v0.84.0 meta-audit fix train: 126 verified findings resolved (0 false positives across a 24-agent verification pass). Detailed training-alignment report: `docs/post-audit-reports/2026-07-10-audit-v0.84.0-fix-train.md`.*
+
+### Added
+- Spec §P15 "Confidence escalation" subsection; P16 principle file gains DA isolation, beginner suppression exception, Root-Cause Discipline, Inform-Tier Summary.
+- Durable audit backlog `_LOCAL/audit/backlog.json` (decision-ready dossiers) + `audit.py --backlog-*` commands + `audit_layout` hygiene category.
+- Distributed reference `private-repo-github-app-setup.md` (role-neutral GitHub App guide; solo users are their own App owner).
+- Contractual Full-mode rule: existing tests AND (deps > 3 OR entry points > 3).
+### Changed
+- /gse:task final status honors the TASK state machine (review vs done); /gse:status health display is mode-aware; /gse:backlog legend covers all 9 statuses.
+- /gse:pause gains a commit-failure Gate (rescue branch / override / checkpoint+WARNING); /gse:resume verifies the current branch in branch-only mode (new checkpoint `git_state.head`/`clean`).
+- P6 taxonomy aligned corpus-wide (12 prefixes, 7 link types); P13 principle file on the system-hooks/agent-behaviors split; git-hygiene weighted table unified; complexity assessment on the 7-signal + pre-filter model.
+- Design doc accuracy: §7 hook skeletons (CLAUDE_TOOL_INPUT purged), §3.1 tree, §11.1 steps 9-12, §5.16 retitle, state-schema exhibits completed.
+### Fixed
+- Force-push guardrail `+refspec` bypass closed (all platforms, regression-tested); `--verify` asserts Gemini hook content parity.
+- Installer: GSE_MODE=local/sandbox without GSE_PROJECT_DIR no longer installs into the wiped temp dir; relative paths absolutized; uninstall reaches local/sandbox projects; per-platform×mode Next-step hints.
+- /gse:deploy --destroy deletes SERVER_UUID and COOLIFY_GITHUB_APP_UUID; spec glossary teaches complexity-boxed sprints/spikes; ~30 cross-references upgraded to number+name.
+### Removed
+- Phantom promises retracted: `config/guardrails.yaml` custom-guardrails rule, `docs/id-registry.md` rule, `.gse/dashboard.py` tree entry, status.yaml mode write.
+
 ## [0.84.0] - 2026-07-09
 
 ### Added
