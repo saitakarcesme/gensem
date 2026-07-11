@@ -31,7 +31,7 @@ Agent: I don't see a project set up yet. Let me get to know you first.
 
 You:   French
 
-Agent: [... 4-5 profiling questions: your role, experience, what you want to build ...]
+Agent: [... a short profiling interview — up to a dozen quick single-tap questions: your role, experience, what you want to build, how you want to work together ...]
 
 You:   I want to build a personal reading tracker as a web app. I'm a beginner.
 
@@ -1214,7 +1214,7 @@ The HUG activity captures and maintains the following profile dimensions:
 - **IT expertise:** estimated from vocabulary and question complexity
 - **Team context:** detected from git log (multiple committers?)
 
-Only dimensions that cannot be reliably inferred are asked explicitly. For a typical solo project, the interview should have 4-5 questions, not 13.
+Only dimensions that cannot be reliably inferred are asked explicitly. For a typical solo project with existing code to infer from, the interview should have 4-5 questions, not 13; on a greenfield project (little to infer), expect up to a dozen quick single-tap questions — the completeness invariant below is deliberate.
 
 ### 3.2.2 Profile Update Mode
 

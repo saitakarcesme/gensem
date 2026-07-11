@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.89.0] - 2026-07-11
+
+*Classroom readiness (backlog BKL-cc94d3cf, BKL-843a9572, BKL-a59cafa0, BKL-7f37c853).*
+
+### Changed
+- Changed spec §0.2 Quickstart to honestly describe the greenfield profiling interview (up to a dozen single-tap questions); §7 HUG expectation harmonized.
+- Changed /gse:deploy learner preconditions from self-reported y/n prompts to agent-run deterministic checks (.env present, DEPLOY_USER set, GitHub remote) with the existing remediation messages on failure.
+- Changed resume [LOST] worktree handling: class-2 backup tags are consulted first — merged work reports as [DELIVERED] (stale checkpoint), unmerged work gets a "Recover from backup tag" Gate option.
+
+### Added
+- Added the mid-course recovery recipe to both instructor spots (briefing + --training-init): a damaged learner app is recreated by re-running /gse:deploy (~5 min).
+
 ## [0.88.0] - 2026-07-11
 
 *Install hygiene quick wins (backlog BKL-f27cce03, BKL-9cda758c, BKL-8be5a4a1, BKL-4850db24).*

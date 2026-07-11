@@ -105,7 +105,13 @@ For each worktree recorded in the checkpoint:
    ```
    git worktree add {original_path} {branch_name}
    ```
-4. If branch is also missing: report as `[LOST]` — manual intervention needed
+4. If branch is also missing, consult the class-2 backup tags before declaring anything lost (DELIVER Step 0 tags every branch it deletes — spec §10.6 — Safety and Recovery):
+   ```
+   git tag -l "gse-backup/sprint-{NN}-{type}-{name}-deleted"
+   ```
+   - **Tag exists and its commit is in main** (`git merge-base --is-ancestor <tag> main`): report as `[DELIVERED]` — the work was merged and the branch cleaned up; the checkpoint is simply stale. Informational, no action needed.
+   - **Tag exists but its commit is NOT in main**: report as `[LOST]` with recovery available — the Step 3 Gate offers *Recover from backup tag*.
+   - **No tag**: report as `[LOST]` — manual intervention needed (spec §10.6 — Safety and Recovery).
 
 #### No worktrees in the checkpoint (branch-only / none strategy)
 
@@ -126,13 +132,17 @@ WORKTREES
   [CHANGED] .worktrees/sprint-02-feat-auth     — TASK-004 (2 new commits since pause)
   [DIRTY]   .worktrees/sprint-02-doc-readme    — TASK-005 (uncommitted changes)
   [MISSING] .worktrees/sprint-02-test-unit     — TASK-006 (branch exists, propose recreate)
-  [LOST]    .worktrees/sprint-01-feat-old      — TASK-002 (branch deleted)
+  [DELIVERED] .worktrees/sprint-01-feat-done   — TASK-001 (merged to main, cleaned up — stale checkpoint)
+  [LOST]    .worktrees/sprint-01-feat-old      — TASK-002 (branch deleted, backup tag found)
 ```
 
-If any worktrees are `[MISSING]`, present Gate:
+If any worktrees are `[MISSING]` or `[LOST]`, present Gate:
 - **Recreate** — Recreate missing worktrees from their branches
+- **Recover from backup tag** — for `[LOST]` entries with a backup tag (spec §10.6 — Safety and Recovery): `git branch {branch_name} gse-backup/sprint-{NN}-{type}-{name}-deleted`, then recreate the worktree
 - **Skip** — Continue without them
 - **Discuss** — Investigate what happened
+
+`[DELIVERED]` entries need no Gate — mention them in the Step 4 briefing as already merged (stale checkpoint, nothing to recover).
 
 ### Step 4 — Context Briefing
 
