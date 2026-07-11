@@ -20,14 +20,14 @@ GSE-One (Generative Software Engineering One) is an AI engineering companion tha
 5. [Sandbox mode (isolated run)](#sandbox-mode-isolated-run)
 6. [Advanced configurations](#advanced-configurations)
 7. [Troubleshooting](#troubleshooting)
-6. [Manual install (maintainers, forks, Windows without WSL)](#manual-install-maintainers-forks-windows-without-wsl)
-7. [Mono-plugin Architecture](#mono-plugin-architecture)
-8. [Develop and Generate](#develop-and-generate)
-9. [Publish the Plugin](#publish-the-plugin)
-10. [Command Reference](#command-reference)
-11. [Deployment](#deployment)
-12. [Auditing the plugin](#auditing-the-plugin)
-13. [Versioning](#versioning)
+8. [Manual install (maintainers, forks, Windows without WSL)](#manual-install-maintainers-forks-windows-without-wsl)
+9. [Mono-plugin Architecture](#mono-plugin-architecture)
+10. [Develop and Generate](#develop-and-generate)
+11. [Publish the Plugin](#publish-the-plugin)
+12. [Command Reference](#command-reference)
+13. [Deployment](#deployment)
+14. [Auditing the plugin](#auditing-the-plugin)
+15. [Versioning](#versioning)
 
 ---
 
@@ -53,11 +53,11 @@ One GSE-One install **per project**, fully self-contained: nothing is written to
 
 | Coding agent | Command (run inside your project) | Comments |
 |---|---|---|
-| Claude Code | `GSE_PLATFORM=claude GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands appear as `/gse-go` (dash form). Writes `.claude/` + `.gse/registry`. |
-| Cursor | `GSE_PLATFORM=cursor GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.cursor/` + `.gse/registry`. |
-| opencode | `GSE_PLATFORM=opencode GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.opencode/` + merges `opencode.json` + `.gse/registry`. |
-| Codex CLI | `GSE_PLATFORM=codex GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Skills as `$gse-go` (no slash form on Codex). After install: open `/hooks` once and approve the GSE hooks. |
-| Gemini CLI | `GSE_PLATFORM=gemini GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse:go`. Accept the folder-trust prompt on first launch. |
+| Claude Code | `GSE_PLATFORM=claude sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse:go` (plugin namespace, native `gse:*` subagents). Accept the workspace trust dialog + `/reload-plugins` on first open. Writes `.claude/` + `.gse/registry`. |
+| Cursor | `GSE_PLATFORM=cursor sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.cursor/` + `.gse/registry`. |
+| opencode | `GSE_PLATFORM=opencode sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.opencode/` + merges `opencode.json` + `.gse/registry`. |
+| Codex CLI | `GSE_PLATFORM=codex sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Skills as `$gse-go` (no slash form on Codex). After install: open `/hooks` once and approve the GSE hooks. |
+| Gemini CLI | `GSE_PLATFORM=gemini sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse:go`. Accept the folder-trust prompt on first launch. |
 
 **Updating this project:** re-run the same command inside the project — each project updates independently.
 
@@ -67,17 +67,17 @@ GSE-One installs **into your home directory**; every project you open gets it, a
 
 | Coding agent | Command | Comments |
 |---|---|---|
-| Claude Code | `python3 install.py --platform claude --mode plugin --scope user` | Plugin namespace `/gse:go`; installs to `~/.claude/skills/gse/` + `~/.gse-one.d/`. |
-| Cursor | `python3 install.py --platform cursor --mode plugin` | Installs to `~/.cursor/plugins/local/gse-one/`. |
-| opencode | `python3 install.py --platform opencode --mode plugin` | Installs to `~/.config/opencode/`. |
-| Codex CLI | `python3 install.py --platform codex --mode plugin` | `~/.codex/` + `~/.agents/skills/` + `~/.gse-one.d/`; approve the GSE hooks once in `/hooks`. |
-| Gemini CLI | `python3 install.py --platform gemini --mode plugin` | Extension at `~/.gemini/extensions/gse-one/`. |
+| Claude Code | `python3 install.py --platform claude --mode machine` | Plugin namespace `/gse:go`; installs to `~/.claude/skills/gse/` + `~/.gse-one.d/`. |
+| Cursor | `python3 install.py --platform cursor --mode machine` | Installs to `~/.cursor/plugins/local/gse-one/`. |
+| opencode | `python3 install.py --platform opencode --mode machine` | Installs to `~/.config/opencode/`. |
+| Codex CLI | `python3 install.py --platform codex --mode machine` | `~/.codex/` + `~/.agents/skills/` + `~/.gse-one.d/`; approve the GSE hooks once in `/hooks`. |
+| Gemini CLI | `python3 install.py --platform gemini --mode machine` | Extension at `~/.gemini/extensions/gse-one/`. |
 
-*(Without a clone: the curl command of Situation 1 with `GSE_MODE=plugin` does the same.)*
+*(Without a clone: the curl command of Situation 1 with `GSE_MODE=machine` does the same.)*
 
 **One agent per project is the norm:** if several coding agents are on your PATH, the installer refuses to guess — name yours with `GSE_PLATFORM=…` (or `--platform`). With exactly one agent installed, it is picked automatically. To really install on every detected agent at once, set `GSE_PLATFORM=all` explicitly.
 
-Other needs — throwaway isolated environments (training, evaluation), the Claude project-scope plugin variant, the legacy `no-plugin` mode, and the full machine-vs-project matrix — are covered in [Advanced configurations](#advanced-configurations).
+Other needs — throwaway isolated environments (training, evaluation), the full machine-vs-project matrix, and the pre-0.87.0 mode names — are covered in [Advanced configurations](#advanced-configurations).
 
 ---
 
@@ -98,13 +98,13 @@ curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.s
 curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh -s -- upgrade
 ```
 
-The script detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH. With **exactly one** agent installed it is picked automatically; with **several**, the script stops and asks you to name yours via `GSE_PLATFORM=…` (set `GSE_PLATFORM=all` to really target every detected agent). It installs **inside the current directory** (no-plugin mode): a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder, plus a registry marker `~/.gse-one` pointing at the platform dir — nothing else is installed globally by default. Set `GSE_MODE=local` for a fully project-contained install (registry inside the project, nothing under `$HOME` — see [Choosing your installation](#choosing-your-installation)), or `GSE_MODE=plugin` for a machine-level install.
+The script detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH. With **exactly one** agent installed it is picked automatically; with **several**, the script stops and asks you to name yours via `GSE_PLATFORM=…` (set `GSE_PLATFORM=all` to really target every detected agent). By default it installs **everything inside the current directory** (project mode): a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder, plus the registry marker `<project>/.gse/registry` — **nothing is written to your home directory**. Set `GSE_MODE=machine` for a whole-machine install instead (see [Choosing your installation](#choosing-your-installation)).
 
 Once finished, open your coding agent and start GSE-One. The entry command differs per platform:
 
 | Platform | First command |
 |---|---|
-| Claude Code | `/gse-go` (no-plugin) or `/gse:go` (plugin mode) |
+| Claude Code | `/gse:go` |
 | Cursor / opencode | `/gse-go` |
 | Gemini CLI | `/gse:go` |
 | Codex CLI | the activities are namespaced skills — type `$gse-go` (autocomplete) or pick `gse-go` from `/skills`; the `/gse-go` and `/gse:go` slash forms do **not** exist on Codex |
@@ -115,7 +115,7 @@ Once finished, open your coding agent and start GSE-One. The entry command diffe
 
 You only need four commands to start — the agent profiles you, proposes each next step, and explains as it goes; you never need the other 20 commands up front:
 
-- `/gse-go` (or `/gse:go` in plugin mode) — the single entry point: onboarding on first run, then "what's next" forever after
+- `/gse-go` (`/gse:go` on Claude Code and Gemini) — the single entry point: onboarding on first run, then "what's next" forever after
 - `/gse-status` — where am I? (sprint, tasks, open items)
 - `/gse-health` — 8-dimension project health with a generated dashboard
 - `/gse-pause` — checkpoint the session safely before stepping away
@@ -131,10 +131,9 @@ The curl installer reads five environment variables that override auto-detection
 | Variable | Values | Description |
 |---|---|---|
 | `GSE_PLATFORM` | `claude` \| `cursor` \| `opencode` \| `codex` \| `gemini` \| `all` \| `both` | Target platform — `both` = claude + cursor, `all` = every supported platform. Default: the single agent detected on PATH; with several agents detected the installer refuses to guess and asks for this variable |
-| `GSE_MODE` | `plugin` \| `no-plugin` \| `local` \| `sandbox` | Plugin, or copy artifacts into a project's `.claude/` / `.cursor/` / `.opencode/` / `.codex/` / `.gemini/`. `local` = no-plugin **+ project registry, nothing under `$HOME`** (self-contained / committable). `sandbox` = **isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher** to start the agent fully isolated (codex/gemini/opencode) |
-| `GSE_SCOPE` | `project` \| `local` \| `user` | Claude Code plugin scope only (default: `user`); ignored by Cursor, opencode, Codex, and Gemini |
+| `GSE_MODE` | `project` \| `machine` \| `sandbox` | `project` (default) = everything in the project folder, registry at `<project>/.gse/registry`, **nothing under `$HOME`** (self-contained / committable). `machine` = one install for the whole machine, under `$HOME`. `sandbox` = **isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher** (codex/gemini/opencode). The pre-0.87.0 names (`plugin`/`no-plugin`/`local`) and `GSE_SCOPE` were removed — the installer fails with the mapping if you use them |
 | `GSE_VERSION` | `latest` \| `vX.Y.Z` | Release tag to install; `latest` resolves via the GitHub API (default: `latest`) |
-| `GSE_PROJECT_DIR` | path | Target directory for `no-plugin` / `local` / `sandbox` modes (default: current working directory; relative paths are resolved against the invocation directory) |
+| `GSE_PROJECT_DIR` | path | Target directory for `project` / `sandbox` modes (default: current working directory; relative paths are resolved against the invocation directory) |
 
 Example — pin to an explicit version and install only for Cursor:
 
@@ -143,10 +142,10 @@ GSE_PLATFORM=cursor GSE_VERSION=v0.62.7 \
   curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh
 ```
 
-Example — force no-plugin mode into a specific project directory:
+Example — install into a specific project directory:
 
 ```bash
-GSE_MODE=no-plugin GSE_PROJECT_DIR=/path/to/myproject \
+GSE_PROJECT_DIR=/path/to/myproject \
   curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh
 ```
 
@@ -154,7 +153,7 @@ GSE_MODE=no-plugin GSE_PROJECT_DIR=/path/to/myproject \
 
 ## Sandbox mode (isolated run)
 
-`GSE_MODE=sandbox` (or `python3 install.py --mode sandbox`) installs GSE-One under a **project-internal `$HOME`** at `<project>/.gse-sandbox/`, so nothing touches your real home directory. Supported on **Codex CLI, Gemini CLI, and opencode** (the file-based, `$HOME`-honoring agents); Claude Code and Cursor are rejected with a pointer to `--mode local`.
+`GSE_MODE=sandbox` (or `python3 install.py --mode sandbox`) installs GSE-One under a **project-internal `$HOME`** at `<project>/.gse-sandbox/`, so nothing touches your real home directory. Supported on **Codex CLI, Gemini CLI, and opencode** (the file-based, `$HOME`-honoring agents); Claude Code and Cursor are rejected with a pointer to `--mode project`.
 
 **Install and run are decoupled** — install once, then launch the isolated agent any day with the generated launcher:
 
@@ -194,19 +193,17 @@ sh .gse-sandbox/run --bypass      # fully unprotected — use with care
 
 The two situations of [Choosing your installation](#choosing-your-installation) cover most users. The remaining setups:
 
-**The machine-vs-project matrix.** Behind `--mode` and `--scope` sit two independent questions — *who sees GSE* (the whole machine, or one project) and *how the platform loads it* (native plugin system, or plain file copy). On four platforms the level is implied by the mode (plugin ⇒ machine; no-plugin/local ⇒ project); only Claude's plugin mechanism natively supports both levels, hence its extra `--scope` flag:
+**The machine-vs-project matrix.** The mode answers one question — *who sees GSE*: the whole machine (`machine`, under `$HOME`) or one project (`project`, everything inside the project folder, registry at `<project>/.gse/registry`):
 
-| Platform | GSE for the whole machine | GSE for one project |
+| Platform | `--mode machine` | `--mode project` |
 |---|---|---|
-| Claude Code | `--mode plugin --scope user` → `~/.claude/skills/gse/` | `--mode local` → `.claude/` **or** `--mode plugin --scope project` → `.claude/skills/gse/` (see below) |
-| Cursor | `--mode plugin` → `~/.cursor/plugins/local/gse-one/` | `--mode local` / `no-plugin` → `.cursor/` |
-| opencode | `--mode plugin` → `~/.config/opencode/` | `--mode local` / `no-plugin` → `.opencode/` |
-| Codex CLI | `--mode plugin` → `~/.codex/` + `~/.agents/skills/` | `--mode local` / `no-plugin` → `.codex/` + `.agents/skills/` |
-| Gemini CLI | `--mode plugin` → `~/.gemini/extensions/gse-one/` | `--mode local` / `no-plugin` → `.gemini/` |
+| Claude Code | `~/.claude/skills/gse/` (skills-dir plugin) + `~/.gse-one.d/` | `.claude/skills/gse/` (skills-dir plugin) + `.claude/` assets — `/gse:go` namespace, native `gse:*` subagents, zero `$HOME` footprint; accept the workspace trust dialog + `/reload-plugins` on first open |
+| Cursor | `~/.cursor/plugins/local/gse-one/` | `.cursor/` |
+| opencode | `~/.config/opencode/` | `.opencode/` |
+| Codex CLI | `~/.codex/` + `~/.agents/skills/` + `~/.gse-one.d/` | `.codex/` + `.agents/skills/` |
+| Gemini CLI | `~/.gemini/extensions/gse-one/` | `.gemini/` |
 
-**Claude: two routes to project level.** `--mode plugin --scope project` installs a real plugin under `<project>/.claude/skills/gse/`: cleaner footprint (one directory), the `/gse:go` namespace, and native `gse:*` subagents — but it still writes the `~/.gse-one.d/` side-install under `$HOME`, and the workspace must be trusted (accept the dialog, then `/reload-plugins`). `--mode local` is the strict "everything in the project" answer (`/gse-go` dash commands, zero `$HOME` footprint). The `local` **scope** value maps to `project` (skills-dir plugins have two levels only).
-
-**Legacy `--mode no-plugin`.** Identical to `local` except the registry marker is the machine-level file `~/.gse-one` instead of `<project>/.gse/registry`. Caveat with several GSE projects: that single global pointer is rewritten by each install — the last-installed project wins for every no-plugin project on the machine. Prefer `local`.
+**Pre-0.87.0 mode names (removed).** `plugin` → use `machine`; `no-plugin` and `local` → use `project`; the Claude-only `--scope` flag (and `GSE_SCOPE`) is gone — the level is carried by the mode. The installer fails with this mapping if an old name is used. Also gone with `no-plugin`: its machine-level registry pointer `~/.gse-one` for project installs (it was last-install-wins across projects); project installs now always keep their registry inside the project. Re-running a project install over a pre-0.87.0 layout cleans the old artifacts automatically.
 
 **Sandbox** (previous section) is the fourth setup: a project-internal `$HOME` for training/evaluation — the only mode that also isolates the agent's *runtime* (auth included), not just the files.
 
@@ -252,7 +249,7 @@ Clone the repo and run `install.py` directly when you are contributing to GSE-On
 
 The installer is **platform-symmetric** — the only thing that changes between the five agents is the `--platform` value. Set it once in a shell variable and the same recipe works for every agent.
 
-### One recipe, any agent (no-plugin)
+### One recipe, any agent (project mode)
 
 ```bash
 AGENT=claude        # claude | cursor | opencode | codex | gemini
@@ -262,8 +259,8 @@ mkdir gse-quick-start && cd gse-quick-start
 git clone https://github.com/nicolasguelfi/gensem.git
 mkdir my-project && (cd my-project && git init)
 
-# Install into the project (no-plugin — everything stays in my-project/)
-python3 gensem/install.py --platform "$AGENT" --mode no-plugin \
+# Install into the project (project mode — everything stays in my-project/)
+python3 gensem/install.py --platform "$AGENT" --mode project \
   --project-dir "$PWD/my-project"
 
 # Launch the agent in the project
@@ -273,7 +270,7 @@ cd my-project
 
 Then start GSE-One with your agent's entry command (`/gse-go`, `/gse:go`, or Codex's `$gse-go` — see [Your first session](#your-first-session)).
 
-> **What "no-plugin" writes.** Artifacts go into the project's platform dir (`.claude/`, `.cursor/`, `.opencode/`, `.codex/`, or `.gemini/`); nothing global except `~/.gse-one` (one line with the plugin path, removed by `python3 gensem/install.py --uninstall`). For a fully committable project with **nothing** under `$HOME`, use `--mode local` instead. Commands use the `gse-` dash prefix in no-plugin mode; the colon form `/gse:go` only exists in Claude Code plugin mode. **Codex only:** after installing, launch `codex`, open `/hooks`, and approve the GSE-One hooks — unapproved hooks do not run, so the deterministic guardrails stay inert until then.
+> **What project mode writes.** Artifacts go into the project's platform dir (`.claude/`, `.cursor/`, `.opencode/`, `.codex/`, or `.gemini/`) plus the registry marker `<project>/.gse/registry` — **nothing under `$HOME`**; the project is committable and syncs whole across machines. Commands use the `gse-` dash prefix, except Claude Code and Gemini which expose `/gse:<name>`. **Codex only:** after installing, launch `codex`, open `/hooks`, and approve the GSE-One hooks — unapproved hooks do not run, so the deterministic guardrails stay inert until then.
 
 > **`git init`.** The `git init` above creates a fresh repository for YOUR project, independent of the `.git/` inside the `gensem/` clone (which tracks the plugin source). First-time git users: GSE-One configures your git identity automatically on the first commit — no prior `git config` needed.
 
@@ -314,25 +311,25 @@ To install via the platform's plugin system (prefixed commands `/gse:*` on Claud
 
 ```bash
 # Cursor (local plugin)
-python3 install.py --platform cursor --mode plugin
+python3 install.py --platform cursor --mode machine
 
 # Claude Code (user-scoped plugin)
-python3 install.py --platform claude --mode plugin --scope user
+python3 install.py --platform claude --mode machine
 
 # opencode (global — ~/.config/opencode/)
-python3 install.py --platform opencode --mode plugin
+python3 install.py --platform opencode --mode machine
 
 # Codex CLI (global — ~/.codex/ + ~/.agents/skills/)
 # After installing: launch codex, open /hooks, and approve the GSE-One hooks —
 # unapproved hooks do NOT run (the deterministic guardrails stay inert).
 # Headless-only escape hatch: --dangerously-bypass-hook-trust (not recommended).
-python3 install.py --platform codex --mode plugin
+python3 install.py --platform codex --mode machine
 
 # Gemini CLI (global extension — ~/.gemini/extensions/gse-one/)
-python3 install.py --platform gemini --mode plugin
+python3 install.py --platform gemini --mode machine
 
 # All detected platforms at once (user/global scope)
-python3 install.py --platform all --mode plugin --scope user
+python3 install.py --platform all --mode machine
 
 # Interactive (the installer guides you)
 python3 install.py
@@ -428,8 +425,7 @@ python3 install.py
 |--------|--------|---------|-------------|
 | *(no flags)* | — | — | **Interactive mode** — detects environment, guides step by step |
 | `--platform` | `claude` \| `cursor` \| `opencode` \| `codex` \| `gemini` \| `both` \| `all` | *(interactive)* | Target platform (`both` = claude+cursor, `all` = every supported platform) |
-| `--mode` | `plugin` \| `no-plugin` \| `local` \| `sandbox` | *(interactive)* | `plugin` (recommended); `no-plugin` (copies artifacts directly); `local` (no-plugin + project registry, nothing under `$HOME`); `sandbox` (isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher — codex/gemini/opencode) |
-| `--scope` | `project` \| `local` \| `user` | `project` | Claude Code plugin scope only (ignored by Cursor, opencode, Codex, Gemini). `local` maps to `project` (skills-dir plugins have two scopes) |
+| `--mode` | `project` \| `machine` \| `sandbox` | `project` | `project` (default) = everything in the project folder, nothing under `$HOME`; `machine` = whole machine, under `$HOME`; `sandbox` = isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher (codex/gemini/opencode). Pre-0.87.0 names (`plugin`/`no-plugin`/`local`) and `--scope` were removed |
 | `--project-dir` | path | current directory | No-plugin/local modes, and Claude plugin mode in `project` scope |
 | `--uninstall` | *(flag)* | `false` | Remove GSE-One |
 
@@ -441,35 +437,35 @@ python3 install.py
 #  plugin", auto-loaded as gse@skills-dir; user scope uses ~/.claude/skills/gse/.
 #  Project scope loads only in trusted workspaces: accept the trust dialog,
 #  then run /reload-plugins.)
-python3 install.py --platform claude --mode plugin --scope project
+python3 install.py --platform claude --mode project
 
 # Cursor — plugin (global)
-python3 install.py --platform cursor --mode plugin
+python3 install.py --platform cursor --mode machine
 
 # opencode — plugin (global, ~/.config/opencode/)
-python3 install.py --platform opencode --mode plugin
+python3 install.py --platform opencode --mode machine
 
 # opencode — non-plugin (project .opencode/)
-python3 install.py --platform opencode --mode no-plugin --project-dir /path/to/myproject
+python3 install.py --platform opencode --mode project --project-dir /path/to/myproject
 
 # Codex CLI — plugin (global) / Gemini CLI — plugin (global extension)
-python3 install.py --platform codex --mode plugin
-python3 install.py --platform gemini --mode plugin
+python3 install.py --platform codex --mode machine
+python3 install.py --platform gemini --mode machine
 
 # Both Claude + Cursor
-python3 install.py --platform both --mode plugin --scope user
+python3 install.py --platform both --mode machine
 
 # All detected platforms at once
-python3 install.py --platform all --mode plugin --scope user
+python3 install.py --platform all --mode machine
 
-# Non-plugin mode (Claude)
-python3 install.py --platform claude --mode no-plugin --project-dir /path/to/myproject
+# Project mode (Claude)
+python3 install.py --platform claude --mode project --project-dir /path/to/myproject
 
-# Fully local mode — nothing under $HOME (self-contained / committable)
-python3 install.py --platform codex --mode local --project-dir /path/to/myproject
+# Project mode — everything in the project, nothing under $HOME (self-contained / committable)
+python3 install.py --platform codex --mode project --project-dir /path/to/myproject
 
 # Uninstall
-python3 install.py --uninstall --platform claude --mode plugin
+python3 install.py --uninstall --platform claude --mode machine
 ```
 
 > **Windows:** If `python3` is not recognized, use `python` instead.
@@ -510,10 +506,10 @@ git push origin main --tags
 python3 install.py
 
 # Install (scripted)
-python3 install.py --platform claude --mode plugin --scope project
+python3 install.py --platform claude --mode project
 
 # Uninstall
-python3 install.py --uninstall --platform claude --mode plugin
+python3 install.py --uninstall --platform claude --mode machine
 ```
 
 ### Verification

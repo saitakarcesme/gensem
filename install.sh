@@ -9,10 +9,9 @@
 #
 # Env overrides:
 #   GSE_PLATFORM   claude|cursor|opencode|codex|gemini|all|both   (default: auto-detect)
-#   GSE_MODE       plugin|no-plugin|local|sandbox    (default: no-plugin; 'local' = project registry, nothing under $HOME; 'sandbox' = isolated $HOME in .gse-sandbox + .gse-sandbox/run launcher, codex/gemini/opencode only)
-#   GSE_SCOPE      project|local|user                (default: user)
+#   GSE_MODE       project|machine|sandbox           (default: project — everything in the project folder, nothing under $HOME; 'machine' = one install for the whole machine; 'sandbox' = isolated $HOME in .gse-sandbox + .gse-sandbox/run launcher, codex/gemini/opencode only. Pre-0.87.0 names plugin/no-plugin/local were removed; GSE_SCOPE too)
 #   GSE_VERSION    vX.Y.Z|latest                     (default: latest)
-#   GSE_PROJECT_DIR /path (abs or relative)          (no-plugin/local/sandbox; default: current dir; relative paths resolved against the invocation dir)
+#   GSE_PROJECT_DIR /path (abs or relative)          (project/sandbox; default: current dir; relative paths resolved against the invocation dir)
 #   GSE_LOCAL_TARBALL /abs/path/gse-one.tar.gz       (maintainer-only: skip
 #                                                     network fetch and use a
 #                                                     local tarball instead;
@@ -64,13 +63,18 @@ preflight() {
     fi
 }
 
-# Default mode is no-plugin — install artifacts into the current project, not
-# globally. Users who want a user-scope plugin install must set GSE_MODE=plugin
-# explicitly. This avoids surprise global installs for a casual one-liner run
-# in an unrelated directory.
+# Default mode is project — everything inside the current project folder,
+# nothing under $HOME. GSE_MODE=machine installs once for the whole machine.
+# The pre-0.87.0 names (plugin/no-plugin/local) were removed in the v0.87.0
+# clean break: fail with the mapping instead of silently guessing.
 detect_mode() {
-    if [ -n "${GSE_MODE:-}" ]; then printf '%s' "$GSE_MODE"; return; fi
-    printf 'no-plugin'
+    m="${GSE_MODE:-project}"
+    case "$m" in
+        project|machine|sandbox) printf '%s' "$m" ;;
+        plugin)    fail "GSE_MODE=plugin was renamed in v0.87.0 — use GSE_MODE=machine (one install for the whole machine)." ;;
+        no-plugin|local) fail "GSE_MODE=$m was renamed in v0.87.0 — use GSE_MODE=project (everything in the project folder, nothing under \$HOME; this is the default)." ;;
+        *)         fail "Unknown GSE_MODE '$m' (expected: project | machine | sandbox)." ;;
+    esac
 }
 
 # Translate detected platforms into install.py --platform value.
@@ -105,11 +109,18 @@ except Exception: pass' 2>/dev/null || true)
     printf '%s' "$tag"
 }
 
-# Print installed tag (vX.Y.Z) if registry + VERSION file present; empty otherwise.
+# Print installed tag (vX.Y.Z) if a registry + VERSION file is present; empty
+# otherwise. Project-local registry (<project>/.gse/registry, possibly holding
+# a path RELATIVE to the project root) wins over the machine-level ~/.gse-one.
 installed_version() {
-    [ -f "$REGISTRY_FILE" ] || return 0
-    target=$(cat "$REGISTRY_FILE" 2>/dev/null || true)
-    [ -n "$target" ] && [ -f "$target/VERSION" ] || return 0
+    proj_root="${GSE_PROJECT_DIR:-$(pwd)}"
+    reg="$proj_root/.gse/registry"
+    [ -f "$reg" ] || reg="$REGISTRY_FILE"
+    [ -f "$reg" ] || return 0
+    target=$(cat "$reg" 2>/dev/null || true)
+    [ -n "$target" ] || return 0
+    case "$target" in /*) ;; *) target="$proj_root/$target" ;; esac
+    [ -f "$target/VERSION" ] || return 0
     v=$(tr -d '[:space:]' < "$target/VERSION" 2>/dev/null || true)
     [ -n "$v" ] && printf 'v%s' "$v"
 }
@@ -153,7 +164,7 @@ run_install_py() {
 }
 
 # Shared prelude for install/uninstall: preflight, detect, resolve, download.
-# Sets globals: mode, plat_flag, scope, project_dir, target_tag, install_root.
+# Sets globals: mode, plat_flag, project_dir, target_tag, install_root.
 prepare() {
     # $1: 'install' (default) or 'uninstall' — install refuses platform
     # ambiguity BEFORE downloading anything; uninstall maps it to 'all'.
@@ -168,9 +179,11 @@ prepare() {
             fi
             ;;
     esac
-    scope="${GSE_SCOPE:-user}"
+    if [ -n "${GSE_SCOPE:-}" ]; then
+        fail "GSE_SCOPE was removed in v0.87.0 — the level is carried by GSE_MODE (machine = whole machine, project = this project)."
+    fi
     project_dir="${GSE_PROJECT_DIR:-}"
-    if [ "$mode" != "plugin" ] && [ -z "$project_dir" ]; then
+    if [ "$mode" != "machine" ] && [ -z "$project_dir" ]; then
         project_dir=$(pwd)
     fi
     # Absolutize a user-supplied relative path against the invocation dir —
@@ -200,21 +213,18 @@ subcmd_install() {
     info "Mode           : ${mode}"
     info "Platforms      : ${plat_flag}"
     [ -n "$project_dir" ] && info "Project dir    : ${project_dir}"
-    [ "$mode" = "plugin" ] && info "Scope          : ${scope}"
 
-    # Version-match early-exit only applies to plugin mode (one global install
-    # per machine). No-plugin is per-project — running the installer in a new
+    # Version-match early-exit only applies to machine mode (one global install
+    # per machine). Project mode is per-project — running the installer in a new
     # project dir must always provision that project, even if some earlier
     # project at the same version is already registered.
-    if [ "$mode" = "plugin" ] && [ -n "$current" ] && [ "$current" = "$target_tag" ]; then
+    if [ "$mode" = "machine" ] && [ -n "$current" ] && [ "$current" = "$target_tag" ]; then
         info "already at ${current} — nothing to do."
         exit 0
     fi
 
     set -- --platform "$plat_flag" --mode "$mode"
-    if [ "$mode" = "plugin" ]; then
-        set -- "$@" --scope "$scope"
-    else
+    if [ "$mode" != "machine" ]; then
         set -- "$@" --project-dir "$project_dir"
     fi
 
@@ -229,9 +239,11 @@ subcmd_install() {
 }
 
 subcmd_uninstall() {
-    # Idempotent per US-5: no registry file means nothing to uninstall.
-    if [ ! -f "$REGISTRY_FILE" ]; then
-        info "Nothing installed — ${REGISTRY_FILE} not found. Exiting 0 (idempotent)."
+    # Idempotent per US-5: no registry means nothing to uninstall. Project
+    # installs keep their registry at <project>/.gse/registry (nothing under
+    # $HOME), so check the current project too before giving up.
+    if [ ! -f "$REGISTRY_FILE" ] && [ ! -f "${GSE_PROJECT_DIR:-$(pwd)}/.gse/registry" ]; then
+        info "Nothing installed — neither ${REGISTRY_FILE} nor ./.gse/registry found. Exiting 0 (idempotent)."
         exit 0
     fi
 
@@ -243,7 +255,7 @@ subcmd_uninstall() {
     info "Uninstalling GSE-One (platforms: ${plat_flag}, mode: ${mode}, version: ${target_tag})"
 
     set -- --uninstall --platform "$plat_flag" --mode "$mode"
-    if [ "$mode" != "plugin" ] && [ -n "$project_dir" ]; then
+    if [ "$mode" != "machine" ] && [ -n "$project_dir" ]; then
         set -- "$@" --project-dir "$project_dir"
     fi
 

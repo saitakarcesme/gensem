@@ -52,7 +52,7 @@ One command installs GSE-One on every coding agent it detects (Claude Code, Curs
 curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh
 ```
 
-The script auto-detects which platforms are on your `PATH` and installs on all of them inside the current directory (no-plugin mode). To install as a user-scope plugin instead, set `GSE_MODE=plugin`. Uninstall and upgrade use the same URL with `sh -s -- uninstall` and `sh -s -- upgrade`. Full details (environment variables, troubleshooting) are in the [root README](../README.md#quick-install-curl--sh).
+The script detects the platforms on your `PATH` (exactly one → auto-picked; several → it asks for `GSE_PLATFORM`) and installs everything inside the current directory (project mode — nothing under `$HOME`). To install once for the whole machine instead, set `GSE_MODE=machine`. Uninstall and upgrade use the same URL with `sh -s -- uninstall` and `sh -s -- upgrade`. Full details (environment variables, troubleshooting) are in the [root README](../README.md#quick-install-curl--sh).
 
 ### Manual install (clone + install.py) — for maintainers, forks, Windows without WSL
 
@@ -64,29 +64,26 @@ cd gensem
 python3 install.py
 ```
 
-The installer detects your OS (macOS, Linux, Windows), available platforms (Claude Code, Cursor, opencode, Codex CLI, Gemini CLI), and guides you through the installation interactively. It supports plugin mode (with scope selection), non-plugin mode, and a fully-local mode (`--mode local`: project registry, nothing under `$HOME`).
+The installer detects your OS (macOS, Linux, Windows), available platforms (Claude Code, Cursor, opencode, Codex CLI, Gemini CLI), and guides you through the installation interactively. It supports project mode (everything in the project folder, registry at `<project>/.gse/registry`, nothing under `$HOME` — the default), machine mode (one install under `$HOME`), and sandbox mode (project-internal `$HOME`).
 
 For non-interactive installation, use CLI flags:
 
 ```bash
 # Claude Code — plugin, project scope (recommended)
-python3 install.py --platform claude --mode plugin --scope project
+python3 install.py --platform claude --mode project
 
 # Cursor — plugin, global
-python3 install.py --platform cursor --mode plugin
+python3 install.py --platform cursor --mode machine
 
 # opencode — plugin (global, ~/.config/opencode/)
-python3 install.py --platform opencode --mode plugin
+python3 install.py --platform opencode --mode machine
 
 # opencode — non-plugin (project .opencode/)
-python3 install.py --platform opencode --mode no-plugin --project-dir /path/to/project
+python3 install.py --platform opencode --mode project --project-dir /path/to/project
 
 # Codex CLI — plugin (global) / Gemini CLI — plugin (global extension)
-python3 install.py --platform codex --mode plugin
-python3 install.py --platform gemini --mode plugin
-
-# Fully local — nothing under $HOME (self-contained / committable)
-python3 install.py --platform codex --mode local --project-dir /path/to/project
+python3 install.py --platform codex --mode machine
+python3 install.py --platform gemini --mode machine
 
 # Sandbox — isolated $HOME in .gse-sandbox/ + a .gse-sandbox/run launcher (codex/gemini/opencode)
 python3 install.py --platform codex --mode sandbox --project-dir /path/to/project

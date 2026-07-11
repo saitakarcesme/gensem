@@ -3,13 +3,19 @@
 
 Usage:
     python3 install.py                        # Interactive mode
-    python3 install.py --platform claude --mode plugin --scope project
-    python3 install.py --platform cursor --mode plugin
-    python3 install.py --platform opencode --mode plugin
-    python3 install.py --platform codex --mode no-plugin --project-dir /path/to/project
-    python3 install.py --platform gemini --mode plugin
-    python3 install.py --platform all --mode plugin --scope user
+    python3 install.py --platform claude --mode project     # everything in the project (default mode)
+    python3 install.py --platform cursor --mode machine     # once for the whole machine
+    python3 install.py --platform codex --mode project --project-dir /path/to/project
+    python3 install.py --platform codex --mode sandbox --project-dir /path/to/project
     python3 install.py --uninstall --platform gemini
+
+Modes (renamed by user need in v0.87.0 — the old plugin/no-plugin/local names
+and the --scope flag were removed in the same release, pre-1.0 clean break):
+    project  — everything in the project folder; registry at <project>/.gse/registry;
+               nothing under $HOME (ex 'local'; absorbs ex 'no-plugin')
+    machine  — one install for the whole machine, under $HOME (ex 'plugin';
+               on Claude this is the ex '--scope user' placement)
+    sandbox  — project-internal $HOME + launcher (codex/gemini/opencode)
 """
 
 import argparse
@@ -42,7 +48,7 @@ CODEX_GLOBAL_DIR = Path.home() / ".codex"
 CODEX_SKILLS_HOME = Path.home() / ".agents" / "skills"
 
 # Gemini CLI install targets. Plugin mode = a dedicated extension dir under
-# ~/.gemini/extensions/; no-plugin mode = project .gemini/ + root GEMINI.md.
+# ~/.gemini/extensions/; project mode = project .gemini/ + root GEMINI.md.
 GEMINI_PLUGIN_DIR = PLUGIN_DIR / "gemini"
 GEMINI_GLOBAL_DIR = Path.home() / ".gemini"
 GEMINI_EXT_DIR = GEMINI_GLOBAL_DIR / "extensions" / "gse-one"
@@ -167,7 +173,7 @@ class InstallTracker:
 
         print()
         # Per-platform AND per-mode invocation syntax (README "What gets installed"):
-        # Claude plugin mode exposes /gse:go, Claude no-plugin exposes /gse-go;
+        # Claude exposes /gse:go in every mode since v0.87.0 (both routes are plugins);
         # Cursor/opencode use /gse-go in both modes; Gemini uses /gse:go; Codex
         # skills are invoked via $gse-go (or /skills) — NOT a colon/slash command.
         # Tracker rows store display names ("Claude Code") in most paths and
@@ -183,7 +189,9 @@ class InstallTracker:
 
         def _go_hint(plat_key, mode):
             if plat_key == "claude":
-                return "/gse:go" if mode in ("plugin", "sandbox") else "/gse-go"
+                # Both machine and project routes are skills-dir plugins now —
+                # the /gse: namespace applies everywhere on Claude.
+                return "/gse:go"
             if plat_key in ("cursor", "opencode"):
                 return "/gse-go"
             if plat_key == "gemini":
@@ -283,8 +291,8 @@ REGISTRY_FILE = Path.home() / ".gse-one"
 # regardless of claude-internals, install.py drops a self-contained copy of
 # the runtime-resolvable assets (tools/, templates/, references/, VERSION)
 # under ~/.gse-one.d/ and points the registry there. All other modes (cursor
-# plugin, cursor no-plugin, claude no-plugin, opencode plugin, opencode
-# no-plugin) point the registry at their own target install dir directly —
+# machine and project modes of every platform) point the registry at their
+# own target install dir directly —
 # no side-install needed.
 GSE_ONE_DATA_DIR = Path.home() / ".gse-one.d"
 
@@ -292,7 +300,7 @@ GSE_ONE_DATA_DIR = Path.home() / ".gse-one.d"
 # Fully-local install mode: when set to a project Path, the registry is written
 # to <project>/.gse/registry (relative content) instead of the global
 # ~/.gse-one — so the install touches NOTHING under $HOME and the project is
-# self-contained / committable. Set by main()/menu when --mode local is chosen.
+# self-contained / committable. Set by main()/menu when --mode project is chosen.
 _LOCAL_REGISTRY_PROJECT = None
 
 
@@ -319,13 +327,14 @@ def _write_registry(plugin_path):
 
 
 def _maybe_local(mode, project_dir):
-    """Arm/disarm fully-local registry placement based on the chosen mode.
+    """Arm/disarm project-local registry placement based on the chosen mode.
 
-    Sets _LOCAL_REGISTRY_PROJECT to project_dir when mode == 'local' (so
-    _write_registry / _remove_registry target <project>/.gse/registry), else
-    clears it. Returns project_dir for call-site convenience."""
+    Sets _LOCAL_REGISTRY_PROJECT to project_dir when mode == 'project' (so
+    _write_registry / _remove_registry target <project>/.gse/registry — the
+    project mode writes NOTHING under $HOME), else clears it. Returns
+    project_dir for call-site convenience."""
     global _LOCAL_REGISTRY_PROJECT
-    _LOCAL_REGISTRY_PROJECT = Path(project_dir) if mode == "local" else None
+    _LOCAL_REGISTRY_PROJECT = Path(project_dir) if mode == "project" else None
     return project_dir
 
 
@@ -383,43 +392,6 @@ def _remove_common_assets(target):
         if mf.exists():
             mf.unlink()
 
-
-def _rewrite_skill_frontmatter_name(skill_md_path, new_name):
-    """Rewrite the `name:` field of a SKILL.md YAML frontmatter to new_name.
-
-    Used by the claude no-plugin install: directories are renamed to
-    `gse-<name>/` to namespace skills inside .claude/skills. On current
-    Claude Code the command name comes from the DIRECTORY name — the
-    frontmatter `name:` is a display label (it only drives the command name
-    for a SKILL.md at a plugin root). Both are renamed IN SYNC so the exposed
-    `/gse-<name>` never depends on which of the two a given CLI version
-    reads — do not remove either half of the rename.
-
-    Returns True if the file was modified, False if no change applied (file
-    missing, no frontmatter, or no `name:` line found within frontmatter).
-    """
-    skill_md_path = Path(skill_md_path)
-    if not skill_md_path.is_file():
-        return False
-    text = skill_md_path.read_text(encoding="utf-8")
-    lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
-        return False
-    end = None
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            end = i
-            break
-    if end is None:
-        return False
-    for j in range(1, end):
-        stripped = lines[j].lstrip()
-        if stripped.startswith("name:"):
-            indent = lines[j][: len(lines[j]) - len(stripped)]
-            lines[j] = f"{indent}name: {new_name}"
-            skill_md_path.write_text("\n".join(lines), encoding="utf-8")
-            return True
-    return False
 
 
 # ---------------------------------------------------------------------------
@@ -502,41 +474,47 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
     conflicts = []
 
     if platform_name == "claude":
-        if mode == "plugin":
-            # Check for no-plugin install in current project (prefixed or legacy GSE skills)
+        if mode == "machine":
+            # A project-level install in the CURRENT project would co-load with
+            # the machine install (legacy gse-* skills or the project plugin).
             local = Path(project_dir or Path.cwd()) / ".claude" / "skills"
             if _has_gse_skills_in_dir(local):
-                conflicts.append(("no-plugin (project)", str(local)))
-            # Check for home-level skills (~/.claude/skills) — relevant for user scope,
-            # but also a duplicate source for any scope since home skills are always loaded.
+                conflicts.append(("legacy project skills", str(local)))
+            if (local / "gse" / ".claude-plugin" / "plugin.json").exists():
+                conflicts.append(("project install", str(local / "gse")))
+            # Legacy gse-* skills at home level (pre-0.87.0 layouts).
             home = Path.home() / ".claude" / "skills"
             if _has_gse_skills_in_dir(home):
-                conflicts.append(("no-plugin (home)", str(home)))
-        elif mode == "no-plugin":
-            # Check for an existing plugin install (skills-dir or CLI-registered)
-            if _detect_claude_plugin_installed(project_dir):
-                conflicts.append(("plugin (skills-dir or CLI-registered)",
-                                  ".claude/skills/gse or claude plugin list → gse"))
+                conflicts.append(("legacy machine skills", str(home)))
+        elif mode == "project":
+            # Only MACHINE-level installs conflict (they co-load in every
+            # project); the project's own prior install is replaced in place.
+            home_plugin = Path.home() / ".claude" / "skills" / "gse"
+            if (home_plugin / ".claude-plugin" / "plugin.json").exists():
+                conflicts.append(("machine install", str(home_plugin)))
+            home = Path.home() / ".claude" / "skills"
+            if _has_gse_skills_in_dir(home):
+                conflicts.append(("legacy machine skills", str(home)))
 
     elif platform_name == "cursor":
-        if mode == "plugin" and env:
-            # Check for no-plugin install in current project
+        if mode == "machine" and env:
+            # Check for a project install in the current project
             local = Path.cwd() / ".cursor" / "commands"
             if local.is_dir() and any(local.iterdir()):
-                conflicts.append(("no-plugin (project)", str(local)))
-        elif mode == "no-plugin" and env:
+                conflicts.append(("project install", str(local)))
+        elif mode == "project" and env:
             # Check for global plugin install
             global_plugin = env["cursor_dir"] / "plugins" / "local" / "gse-one"
             if global_plugin.is_dir():
                 conflicts.append(("plugin (global)", str(global_plugin)))
 
     elif platform_name == "opencode":
-        if mode == "plugin":
+        if mode == "machine":
             # Global install — check for local .opencode/ in the current project
             local = Path(project_dir or Path.cwd()) / ".opencode" / "commands"
             if local.is_dir() and any(local.glob("gse-*.md")):
-                conflicts.append(("no-plugin (project)", str(local.parent)))
-        elif mode == "no-plugin":
+                conflicts.append(("project install", str(local.parent)))
+        elif mode == "project":
             # Local install — check for a global install that would duplicate skills
             global_skills = OPENCODE_GLOBAL_DIR / "skills"
             if global_skills.is_dir() and any(d.name in _get_skill_names()
@@ -548,21 +526,21 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
                 conflicts.append((".claude/skills (auto-loaded by opencode)", str(claude_skills)))
 
     elif platform_name == "codex":
-        if mode == "plugin":
+        if mode == "machine":
             local = Path(project_dir or Path.cwd()) / ".agents" / "skills"
             if local.is_dir() and (local / "gse-go").is_dir():
-                conflicts.append(("no-plugin (project)", str(local)))
-        elif mode == "no-plugin":
+                conflicts.append(("project install", str(local)))
+        elif mode == "project":
             home_skills = CODEX_SKILLS_HOME
             if home_skills.is_dir() and (home_skills / "gse-go").is_dir():
                 conflicts.append(("plugin (global)", str(home_skills)))
 
     elif platform_name == "gemini":
-        if mode == "plugin":
+        if mode == "machine":
             local = Path(project_dir or Path.cwd()) / ".gemini" / "commands" / "gse"
             if local.is_dir() and any(local.glob("*.toml")):
-                conflicts.append(("no-plugin (project)", str(local.parent.parent)))
-        elif mode == "no-plugin":
+                conflicts.append(("project install", str(local.parent.parent)))
+        elif mode == "project":
             if GEMINI_EXT_DIR.is_dir():
                 conflicts.append(("plugin (global extension)", str(GEMINI_EXT_DIR)))
 
@@ -615,36 +593,22 @@ def verify_plugin(location, platform_name):
 
 
 def verify_no_plugin(location, platform_name):
-    """Verify a non-plugin installation. Returns (ok, detail)."""
-    location = Path(location)
+    """Verify a project-mode Cursor installation. Returns (ok, detail).
 
-    if platform_name == "claude":
-        base = location / ".claude"
-    else:
-        base = location / ".cursor"
-
+    Cursor-only since v0.87.0 — the Claude project route installs a
+    skills-directory plugin and verifies inline."""
+    base = Path(location) / ".cursor"
     if not base.is_dir():
         return False, f"{base.name}/ not found"
-
     agents = base / "agents"
     if not agents.is_dir():
         return False, "agents/ not found"
     agent_count = sum(1 for f in agents.glob("*.md"))
-
-    if platform_name == "cursor":
-        # Cursor uses commands/ (flat files) for activities
-        commands = base / "commands"
-        if not commands.is_dir():
-            return False, "commands/ not found"
-        cmd_count = sum(1 for f in commands.glob("*.md"))
-        return True, f"{cmd_count} commands, {agent_count} agents"
-    else:
-        # Claude Code uses skills/ (subdirectories with SKILL.md)
-        skills = base / "skills"
-        if not skills.is_dir():
-            return False, "skills/ not found"
-        skill_count = sum(1 for d in skills.iterdir() if d.is_dir())
-        return True, f"{skill_count} skills, {agent_count} agents"
+    commands = base / "commands"
+    if not commands.is_dir():
+        return False, "commands/ not found"
+    cmd_count = sum(1 for f in commands.glob("*.md"))
+    return True, f"{cmd_count} commands, {agent_count} agents"
 
 
 # ---------------------------------------------------------------------------
@@ -734,90 +698,119 @@ def display_environment(env):
 
 
 # ---------------------------------------------------------------------------
-# Claude Code — Plugin mode
+# Claude Code — machine mode (whole-$HOME) and project mode (self-contained)
 # ---------------------------------------------------------------------------
 
-def _claude_skillsdir_root(scope, project_dir=None):
-    """Skills-directory root for a scope: ~/.claude/skills (user) or
-    <project>/.claude/skills (project)."""
-    if scope == "user":
-        return Path.home() / ".claude" / "skills"
-    return Path(project_dir or Path.cwd()) / ".claude" / "skills"
-
-
-def install_claude_plugin(scope, project_dir=None):
-    """Install GSE-One as a Claude Code skills-directory plugin (file copy).
+def _claude_copy_plugin_body(target, include_hooks=True):
+    """Copy the Claude plugin body (skills-directory plugin form) to target.
 
     Claude Code >= 2.1.x removed local-path `claude plugin install` (the CLI
     only accepts marketplace ids). The supported CLI-free route is a
-    "skills-directory plugin": a directory under ~/.claude/skills/ (user
-    scope) or <project>/.claude/skills/ (project scope) containing
-    .claude-plugin/plugin.json auto-loads as `gse@skills-dir` — same
-    file-copy style as every other platform.
+    "skills-directory plugin": a directory under ~/.claude/skills/ or
+    <project>/.claude/skills/ containing .claude-plugin/plugin.json
+    auto-loads as `gse@skills-dir` — same file-copy style as every other
+    platform.
 
     The copy is SELECTIVE (Claude components only: manifest, skills/, agents/,
     hooks.claude.json, settings.json). Copying all of plugin/ would let the
     commands/skills unification absorb the Cursor commands/ files as duplicate
     skills (48 instead of 24, doubled namespace + context cost). tools/,
-    templates/ and references/ are therefore NOT in this copy — the registry
-    keeps pointing at the ~/.gse-one.d/ side-install.
+    templates/ and references/ are NOT in this copy — they live at the
+    registry target (~/.gse-one.d/ in machine mode, <project>/.claude/ in
+    project mode).
+
+    include_hooks=False (project mode): the hooks stay OUT of the plugin and
+    the manifest `hooks` pointer is stripped — project-level skills-dir
+    plugins only load after the workspace trust dialog, which would leave the
+    deterministic guardrails inert in headless/untrusted contexts. Project
+    mode merges the hooks into <project>/.claude/settings.json instead
+    (verified to fire even without workspace trust): safety is
+    trust-independent, UX (skills, agents) arrives with trust. Machine mode
+    keeps hooks in the plugin (user-scope plugins are trusted by definition).
     """
-    step(f"Claude Code — Plugin install (skills-dir, scope: {scope})")
-
-    if scope == "local":
-        warn("Skills-directory plugins have no 'local' scope — using project scope.")
-        scope = "project"
-
-    if not _check_duplicate_install("claude", "plugin", project_dir):
-        tracker.add("Claude Code", "plugin", scope, "-", "FAIL", "cancelled (duplicate)")
-        return False
-
-    root = _claude_skillsdir_root(scope, project_dir)
-    target = root / "gse"
+    target = Path(target)
     if target.exists():
         remove_path(target)
     ensure_dir(target)
     copy_tree(PLUGIN_DIR / ".claude-plugin", target / ".claude-plugin")
     copy_tree(PLUGIN_DIR / "skills", target / "skills")
     copy_tree(PLUGIN_DIR / "agents", target / "agents")
-    ensure_dir(target / "hooks")
-    shutil.copy2(PLUGIN_DIR / "hooks" / "hooks.claude.json",
-                 target / "hooks" / "hooks.claude.json")
+    if include_hooks:
+        ensure_dir(target / "hooks")
+        shutil.copy2(PLUGIN_DIR / "hooks" / "hooks.claude.json",
+                     target / "hooks" / "hooks.claude.json")
+    else:
+        manifest_file = target / ".claude-plugin" / "plugin.json"
+        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        manifest.pop("hooks", None)
+        manifest_file.write_text(json.dumps(manifest, indent=2) + "\n",
+                                 encoding="utf-8")
     settings_src = PLUGIN_DIR / "settings.json"
     if settings_src.exists():
         shutil.copy2(settings_src, target / "settings.json")
     ok(f"Plugin copied to {target} (auto-loads as gse@skills-dir)")
-    if scope == "project":
-        info("Project-scope plugins load only in trusted workspaces:")
-        info("  open the project in claude, accept the trust dialog, then run /reload-plugins.")
 
-    # Side-install common runtime assets at ~/.gse-one.d/ so that
-    # shell-resolved paths stay stable across scopes (a project-scope install
-    # is not addressable by the global registry) and the selective plugin
-    # copy above does not need to carry tools/templates/references.
-    _copy_common_assets(GSE_ONE_DATA_DIR)
-    ok(f"Common assets copied to {GSE_ONE_DATA_DIR}")
-    _write_registry(GSE_ONE_DATA_DIR)
-    tracker.add("Claude Code", "plugin", scope, str(target), "OK", f"v{VERSION}")
+
+def _claude_merge_hooks_into_settings(settings_file):
+    """Merge the GSE hook entries into <project>/.claude/settings.json.
+
+    Used by project mode so the deterministic guardrails run even before the
+    workspace trust dialog is accepted (plugin-carried hooks would not).
+    Preserves user keys and non-GSE hook entries; replaces previous GSE
+    entries (marker: the one-liners read .gse/ state) in place.
+    """
+    src = json.loads((PLUGIN_DIR / "hooks" / "hooks.claude.json").read_text())
+    settings_file = Path(settings_file)
+    ensure_dir(settings_file.parent)
+    if settings_file.exists():
+        try:
+            settings = json.loads(settings_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            warn(f"Could not parse existing {settings_file}; leaving it untouched.")
+            warn("  GSE hooks NOT installed — fix the file and re-run the installer.")
+            return False
+    else:
+        settings = {}
+    hooks = settings.setdefault("hooks", {})
+    for event, entries in src.get("hooks", {}).items():
+        kept = [e for e in hooks.get(event, []) if ".gse" not in json.dumps(e)]
+        hooks[event] = kept + entries
+    settings_file.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    ok(f"Merged GSE hooks into {settings_file}")
     return True
 
 
-def uninstall_claude_plugin(project_dir=None):
-    """Uninstall the GSE-One Claude plugin.
+def install_claude_machine():
+    """Install GSE-One for the whole machine: skills-directory plugin under
+    ~/.claude/skills/gse/ + common runtime assets at the ~/.gse-one.d/
+    side-install (stable shell path), global registry ~/.gse-one."""
+    step("Claude Code — Machine install (skills-dir plugin, ~/.claude)")
 
-    Removes skills-directory installs (project and user scopes), then makes a
-    best-effort `claude plugin uninstall` pass over the CLI scopes to clean up
-    legacy installs registered via the pre-2.1 local-path CLI flow.
-    """
-    step("Claude Code — Plugin uninstall")
+    if not _check_duplicate_install("claude", "machine"):
+        tracker.add("Claude Code", "machine", "-", "-", "FAIL", "cancelled (duplicate)")
+        return False
+
+    target = Path.home() / ".claude" / "skills" / "gse"
+    _claude_copy_plugin_body(target)
+
+    _copy_common_assets(GSE_ONE_DATA_DIR)
+    ok(f"Common assets copied to {GSE_ONE_DATA_DIR}")
+    _write_registry(GSE_ONE_DATA_DIR)
+    tracker.add("Claude Code", "machine", "-", str(target), "OK", f"v{VERSION}")
+    return True
+
+
+def uninstall_claude_machine():
+    """Uninstall the machine-level Claude install (user skills-dir plugin,
+    legacy CLI-registered plugins, side-install, global registry)."""
+    step("Claude Code — Machine uninstall")
 
     removed_any = False
-    for scope in ("project", "user"):
-        target = _claude_skillsdir_root(scope, project_dir) / "gse"
-        if (target / ".claude-plugin" / "plugin.json").exists():
-            remove_path(target)
-            ok(f"Removed skills-dir plugin ({scope}): {target}")
-            removed_any = True
+    target = Path.home() / ".claude" / "skills" / "gse"
+    if (target / ".claude-plugin" / "plugin.json").exists():
+        remove_path(target)
+        ok(f"Removed skills-dir plugin: {target}")
+        removed_any = True
 
     # Legacy cleanup — installs registered through the old CLI flow.
     if command_exists("claude"):
@@ -834,7 +827,7 @@ def uninstall_claude_plugin(project_dir=None):
                 pass
 
     if not removed_any:
-        info("No Claude plugin install found — cleaning up shared assets anyway.")
+        info("No machine-level Claude install found — cleaning up shared assets anyway.")
 
     # Symmetric removal of the side-install dropped at install time
     _remove_common_assets(GSE_ONE_DATA_DIR)
@@ -847,137 +840,131 @@ def uninstall_claude_plugin(project_dir=None):
 
 
 # ---------------------------------------------------------------------------
-# Claude Code — Non-plugin mode
+# Claude Code — project mode (self-contained skills-dir plugin)
 # ---------------------------------------------------------------------------
 
-def install_claude_no_plugin(project_dir):
-    """Install GSE-One artifacts directly into .claude/ of a project.
+def _claude_remove_legacy_project_artifacts(claude_dir):
+    """Remove pre-0.87.0 'no-plugin' artifacts from a project .claude/.
 
-    Skills are copied with a `gse-` prefix on their directory name so that
-    Claude Code exposes them as `/gse-<name>` (e.g. /gse-go) instead of the
-    bare `/<name>` that project-level skills would otherwise receive. This is
-    the closest no-plugin UX to the `/gse:<name>` namespace produced by the
-    plugin installation path, which remains the recommended mode.
+    Old layout: gse-* (or unprefixed <= v0.20.4) skill directories, copied
+    agent .md files, GSE hook entries and the gse-orchestrator default agent
+    in settings.json. The 0.87.0 project route replaces all of it with the
+    single skills-dir plugin directory — upgrading in place must not leave a
+    duplicate command surface. Returns the number of artifacts removed."""
+    claude_dir = Path(claude_dir)
+    removed = 0
+    skills_dir = claude_dir / "skills"
+    if skills_dir.is_dir():
+        for name in _get_skill_names():
+            for candidate in (skills_dir / f"gse-{name}", skills_dir / name):
+                if candidate.is_dir() and (candidate / "SKILL.md").exists():
+                    shutil.rmtree(candidate)
+                    removed += 1
+    agents_dir = claude_dir / "agents"
+    if agents_dir.is_dir():
+        for f in (PLUGIN_DIR / "agents").glob("*.md"):
+            t = agents_dir / f.name
+            if t.exists():
+                t.unlink()
+                removed += 1
+    settings_file = claude_dir / "settings.json"
+    if settings_file.exists():
+        try:
+            s = json.loads(settings_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            s = None
+        if isinstance(s, dict):
+            changed = False
+            hooks = s.get("hooks")
+            if isinstance(hooks, dict):
+                for event in list(hooks.keys()):
+                    entries = hooks[event]
+                    kept = [e for e in entries if ".gse" not in json.dumps(e)]
+                    if len(kept) != len(entries):
+                        changed = True
+                        removed += len(entries) - len(kept)
+                    if kept:
+                        hooks[event] = kept
+                    else:
+                        del hooks[event]
+                if not hooks:
+                    s.pop("hooks", None)
+            if s.get("agent") == "gse-orchestrator":
+                s.pop("agent")
+                changed = True
+                removed += 1
+            if changed:
+                if s:
+                    settings_file.write_text(json.dumps(s, indent=2) + "\n",
+                                             encoding="utf-8")
+                else:
+                    settings_file.unlink()
+                    ok(f"Removed {settings_file} (only GSE-One content)")
+    if removed:
+        ok(f"Removed {removed} legacy pre-0.87.0 artifact(s) from {claude_dir}")
+    return removed
+
+
+def install_claude_project(project_dir):
+    """Install GSE-One entirely inside the project (nothing under $HOME).
+
+    Skills-directory plugin at <project>/.claude/skills/gse/ (namespace
+    /gse:<name>, native gse:* subagents, hooks + default agent carried by the
+    plugin body) + common runtime assets at <project>/.claude/ + registry at
+    <project>/.gse/registry. The project is self-contained: committable,
+    syncable across machines, version pinned per project.
     """
-    step("Claude Code — Non-plugin install")
+    step("Claude Code — Project install (self-contained skills-dir plugin)")
 
-    # Non-plugin mode has a different invocation syntax than plugin mode.
-    # Make the tradeoff explicit before anything is written to disk.
-    warn("No-plugin mode — invocation syntax:")
-    warn("  Commands appear as /gse-<name> (e.g., /gse-go, /gse-plan).")
-    warn("  Plugin mode gives /gse:<name> (colon) — install as a plugin if you prefer that.")
-    if not confirm("Continue with no-plugin install?"):
-        err("Installation cancelled by user.")
-        tracker.add("Claude Code", "no-plugin", "project", str(project_dir), "FAIL", "cancelled by user")
+    if not _check_duplicate_install("claude", "project", project_dir=project_dir):
+        tracker.add("Claude Code", "project", "-", str(project_dir), "FAIL", "cancelled (duplicate)")
         return False
 
-    if not _check_duplicate_install("claude", "no-plugin", project_dir=project_dir):
-        tracker.add("Claude Code", "no-plugin", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
-        return False
-
-    claude_dir = Path(project_dir) / ".claude"
+    project_dir = Path(project_dir)
+    claude_dir = project_dir / ".claude"
     ensure_dir(claude_dir)
 
-    # Skills (prefixed as gse-<name> to namespace commands in the TUI)
-    skills_dst = claude_dir / "skills"
-    ensure_dir(skills_dst)
-    skills_src = PLUGIN_DIR / "skills"
+    # Upgrading a pre-0.87.0 'no-plugin' install in place: clear the old layout
+    # first so the plugin and the legacy skills don't expose commands twice.
+    _claude_remove_legacy_project_artifacts(claude_dir)
 
-    # Clean legacy unprefixed GSE skills from a prior install (<= v0.20.4)
-    legacy_removed = 0
-    for name in _get_skill_names():
-        legacy = skills_dst / name
-        if legacy.is_dir() and (legacy / "SKILL.md").exists():
-            shutil.rmtree(legacy)
-            legacy_removed += 1
-    if legacy_removed:
-        info(f"Removed {legacy_removed} legacy unprefixed skill(s) from a previous install")
+    _claude_copy_plugin_body(claude_dir / "skills" / "gse", include_hooks=False)
+    _claude_merge_hooks_into_settings(claude_dir / "settings.json")
+    info("Commands available as /gse:<name>; specialized agents as gse:* subagents")
+    info("Guardrail hooks live in .claude/settings.json (active immediately).")
+    info("Skills/agents load in trusted workspaces only:")
+    info("  open the project in claude, accept the trust dialog, then run /reload-plugins.")
 
-    count = 0
-    for skill_dir in sorted(skills_src.iterdir()):
-        if skill_dir.is_dir():
-            prefixed_name = f"gse-{skill_dir.name}"
-            dst = skills_dst / prefixed_name
-            copy_tree(skill_dir, dst)
-            # The directory rename above is what names the command on current
-            # Claude Code; the frontmatter `name:` (display label) is aligned
-            # too so both stay consistent whichever one a CLI version reads.
-            _rewrite_skill_frontmatter_name(dst / "SKILL.md", prefixed_name)
-            count += 1
-    ok(f"Copied {count} skills to {skills_dst} (prefixed as gse-<name>)")
-    info("Commands available as /gse-<name> (e.g., /gse-go, /gse-plan)")
-
-    # Agents
-    agents_dst = claude_dir / "agents"
-    ensure_dir(agents_dst)
-    agents_src = PLUGIN_DIR / "agents"
-    agent_count = 0
-    for agent_file in sorted(agents_src.glob("*.md")):
-        shutil.copy2(agent_file, agents_dst / agent_file.name)
-        agent_count += 1
-    ok(f"Copied {agent_count} agents to {agents_dst}")
-
-    # Common runtime assets (tools/, templates/, references/, VERSION)
     _copy_common_assets(claude_dir)
     ok(f"Copied common assets (tools, templates, references, VERSION) to {claude_dir}")
-
-    # Hooks
-    hooks_file = PLUGIN_DIR / "hooks" / "hooks.claude.json"
-    settings_file = claude_dir / "settings.json"
-    _merge_hooks_into_settings(hooks_file, settings_file)
-    ok(f"Merged hooks into {settings_file}")
-
-    # Default agent
-    _set_default_agent(settings_file, "gse-orchestrator")
-    ok(f"Set default agent to gse-orchestrator")
-
-    # Registry points to the local install dir — self-contained, gensem source
-    # repo can be deleted after install and nothing breaks.
     _write_registry(claude_dir)
 
-    # Verify
-    is_ok, detail = verify_no_plugin(project_dir, "claude")
-    if is_ok:
-        tracker.add("Claude Code", "no-plugin", "project", str(claude_dir), "OK", detail)
-    else:
-        tracker.add("Claude Code", "no-plugin", "project", str(claude_dir), "WARN", detail)
-
+    n_skills = sum(1 for d in (claude_dir / "skills" / "gse" / "skills").iterdir()
+                   if d.is_dir() and (d / "SKILL.md").exists())
+    tracker.add("Claude Code", "project", "-", str(claude_dir), "OK",
+                f"v{VERSION}, {n_skills} skills")
     return True
 
 
-def uninstall_claude_no_plugin(project_dir):
-    """Remove GSE-One artifacts from .claude/."""
-    step("Claude Code — Non-plugin uninstall")
+def uninstall_claude_project(project_dir):
+    """Remove the project-contained Claude install (plugin body, legacy
+    no-plugin artifacts, common assets, project registry)."""
+    step("Claude Code — Project uninstall")
 
     claude_dir = Path(project_dir) / ".claude"
-
+    target = claude_dir / "skills" / "gse"
+    if (target / ".claude-plugin" / "plugin.json").exists():
+        remove_path(target)
+        ok(f"Removed skills-dir plugin: {target}")
     skills_dir = claude_dir / "skills"
-    if skills_dir.exists():
-        removed = 0
-        for name in _get_skill_names():
-            # Remove both the prefixed layout (current) and the legacy unprefixed
-            # layout (<= v0.20.4) to keep uninstall idempotent across versions.
-            for candidate in (skills_dir / f"gse-{name}", skills_dir / name):
-                if candidate.exists():
-                    shutil.rmtree(candidate)
-                    removed += 1
-        ok(f"Removed {removed} GSE-One skill(s) from {skills_dir}")
+    if skills_dir.is_dir() and not any(skills_dir.iterdir()):
+        skills_dir.rmdir()
 
-    agents_dir = claude_dir / "agents"
-    if agents_dir.exists():
-        for f in (PLUGIN_DIR / "agents").glob("*.md"):
-            target = agents_dir / f.name
-            if target.exists():
-                target.unlink()
-        ok(f"Removed GSE-One agents from {agents_dir}")
-
-    # Symmetric removal of common runtime assets (tools, templates, references, VERSION)
+    _claude_remove_legacy_project_artifacts(claude_dir)
     _remove_common_assets(claude_dir)
     ok(f"Removed common assets (tools, templates, references, VERSION) from {claude_dir}")
-
-    info("Hooks and settings.json were not modified (manual cleanup if needed)")
     _remove_registry()
-    tracker.add("Claude Code", "uninstall", "project", str(claude_dir), "OK", "removed")
+    tracker.add("Claude Code", "uninstall", "-", str(claude_dir), "OK", "removed")
     return True
 
 
@@ -987,10 +974,10 @@ def uninstall_claude_no_plugin(project_dir):
 
 def install_cursor_plugin(env):
     """Install GSE-One as a Cursor plugin by copying to ~/.cursor/plugins/."""
-    step("Cursor — Plugin install")
+    step("Cursor — Machine install (~/.cursor/plugins)")
 
-    if not _check_duplicate_install("cursor", "plugin", env=env):
-        tracker.add("Cursor", "plugin", "global", "-", "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("cursor", "machine", env=env):
+        tracker.add("Cursor", "machine", "global", "-", "FAIL", "cancelled (duplicate)")
         return False
 
     plugins_dir = env["cursor_dir"] / "plugins" / "local"
@@ -1015,17 +1002,17 @@ def install_cursor_plugin(env):
     is_ok, detail = verify_plugin(dst, "cursor")
     if is_ok:
         ok(f"Verified: {detail}")
-        tracker.add("Cursor", "plugin", "global", str(dst), "OK", detail)
+        tracker.add("Cursor", "machine", "global", str(dst), "OK", detail)
     else:
         warn(f"Verification issue: {detail}")
-        tracker.add("Cursor", "plugin", "global", str(dst), "WARN", detail)
+        tracker.add("Cursor", "machine", "global", str(dst), "WARN", detail)
 
     return True
 
 
 def uninstall_cursor_plugin(env):
     """Remove GSE-One from Cursor plugins."""
-    step("Cursor — Plugin uninstall")
+    step("Cursor — Machine uninstall")
 
     dst = env["cursor_dir"] / "plugins" / "local" / "gse-one"
     if dst.exists() or dst.is_symlink():
@@ -1045,10 +1032,10 @@ def uninstall_cursor_plugin(env):
 
 def install_cursor_no_plugin(project_dir):
     """Install GSE-One artifacts directly into .cursor/ of a project."""
-    step("Cursor — Non-plugin install")
+    step("Cursor — Project install")
 
-    if not _check_duplicate_install("cursor", "no-plugin", project_dir=project_dir, env=detect_environment()):
-        tracker.add("Cursor", "no-plugin", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("cursor", "project", project_dir=project_dir, env=detect_environment()):
+        tracker.add("Cursor", "project", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
         return False
 
     cursor_dir = Path(project_dir) / ".cursor"
@@ -1103,16 +1090,16 @@ def install_cursor_no_plugin(project_dir):
     # Verify
     is_ok, detail = verify_no_plugin(project_dir, "cursor")
     if is_ok:
-        tracker.add("Cursor", "no-plugin", "project", str(cursor_dir), "OK", detail)
+        tracker.add("Cursor", "project", "project", str(cursor_dir), "OK", detail)
     else:
-        tracker.add("Cursor", "no-plugin", "project", str(cursor_dir), "WARN", detail)
+        tracker.add("Cursor", "project", "project", str(cursor_dir), "WARN", detail)
 
     return True
 
 
 def uninstall_cursor_no_plugin(project_dir):
     """Remove GSE-One artifacts from .cursor/."""
-    step("Cursor — Non-plugin uninstall")
+    step("Cursor — Project uninstall")
 
     cursor_dir = Path(project_dir) / ".cursor"
 
@@ -1152,16 +1139,16 @@ def install_opencode_plugin(env):
     Copies .opencode subtree content (skills, commands, agents, plugins), merges
     AGENTS.md, and deep-merges opencode.json. Produces /gse-<name> slash commands.
     """
-    step("opencode — Plugin install (global)")
+    step("opencode — Machine install (~/.config/opencode)")
 
     if not OPENCODE_PLUGIN_DIR.is_dir():
         err(f"opencode artefacts not found at {OPENCODE_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("opencode", "plugin", "global", "-", "FAIL", "artefacts missing")
+        tracker.add("opencode", "machine", "global", "-", "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("opencode", "plugin"):
-        tracker.add("opencode", "plugin", "global", "-", "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("opencode", "machine"):
+        tracker.add("opencode", "machine", "global", "-", "FAIL", "cancelled (duplicate)")
         return False
 
     target = env["opencode_dir"]
@@ -1184,13 +1171,13 @@ def install_opencode_plugin(env):
               f"{counts['agents']} agents, plugin+AGENTS.md")
     ok(f"opencode plugin installed at {target}")
     info("Commands available as /gse-<name> (e.g., /gse-go, /gse-plan)")
-    tracker.add("opencode", "plugin", "global", str(target), "OK", detail)
+    tracker.add("opencode", "machine", "global", str(target), "OK", detail)
     return True
 
 
 def uninstall_opencode_plugin(env):
     """Remove GSE-One artefacts from the opencode global config dir."""
-    step("opencode — Plugin uninstall (global)")
+    step("opencode — Machine uninstall")
 
     target = env["opencode_dir"]
     if not target.is_dir():
@@ -1216,16 +1203,16 @@ def uninstall_opencode_plugin(env):
 
 def install_opencode_no_plugin(project_dir):
     """Install GSE-One into a project's .opencode/ directory + root AGENTS.md."""
-    step("opencode — Non-plugin install (project)")
+    step("opencode — Project install")
 
     if not OPENCODE_PLUGIN_DIR.is_dir():
         err(f"opencode artefacts not found at {OPENCODE_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("opencode", "no-plugin", "project", str(project_dir), "FAIL", "artefacts missing")
+        tracker.add("opencode", "project", "project", str(project_dir), "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("opencode", "no-plugin", project_dir=project_dir):
-        tracker.add("opencode", "no-plugin", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("opencode", "project", project_dir=project_dir):
+        tracker.add("opencode", "project", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
         return False
 
     project_dir = Path(project_dir)
@@ -1238,7 +1225,7 @@ def install_opencode_no_plugin(project_dir):
     # and templates/references are consulted by activities at runtime.
     _copy_common_assets(target)
     ok(f"Copied common assets (tools, templates, references, VERSION) to {target}")
-    # AGENTS.md lives at the project root in no-plugin mode (opencode convention)
+    # AGENTS.md lives at the project root in project mode (opencode convention)
     _merge_agents_md(project_dir / "AGENTS.md", OPENCODE_PLUGIN_DIR / "AGENTS.md")
     # opencode.json also at project root
     _merge_opencode_json(project_dir / "opencode.json", OPENCODE_PLUGIN_DIR / "opencode.json")
@@ -1252,13 +1239,13 @@ def install_opencode_no_plugin(project_dir):
     ok(f"opencode artefacts installed at {target}")
     info("AGENTS.md and opencode.json written at project root")
     info("Commands available as /gse-<name> (e.g., /gse-go, /gse-plan)")
-    tracker.add("opencode", "no-plugin", "project", str(target), "OK", detail)
+    tracker.add("opencode", "project", "project", str(target), "OK", detail)
     return True
 
 
 def uninstall_opencode_no_plugin(project_dir):
     """Remove GSE-One artefacts from a project's .opencode/ + root AGENTS.md."""
-    step("opencode — Non-plugin uninstall (project)")
+    step("opencode — Project uninstall")
 
     project_dir = Path(project_dir)
     target = project_dir / ".opencode"
@@ -1668,16 +1655,16 @@ def install_codex_plugin(env):
     `[features] hooks = true` set in ~/.codex/config.toml. Registry → side-install
     ~/.gse-one.d/ (Codex's plugin cache path is not stable for shell
     resolution — same rationale as the Claude plugin side-install)."""
-    step("Codex CLI — Plugin install (global)")
+    step("Codex CLI — Machine install (~/.codex)")
 
     if not CODEX_PLUGIN_DIR.is_dir():
         err(f"Codex artefacts not found at {CODEX_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("Codex", "plugin", "global", "-", "FAIL", "artefacts missing")
+        tracker.add("Codex", "machine", "global", "-", "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("codex", "plugin"):
-        tracker.add("Codex", "plugin", "global", "-", "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("codex", "machine"):
+        tracker.add("Codex", "machine", "global", "-", "FAIL", "cancelled (duplicate)")
         return False
 
     n_skills = _codex_copy_skills(CODEX_SKILLS_HOME)
@@ -1696,14 +1683,14 @@ def install_codex_plugin(env):
     status = "OK" if is_ok else "WARN"
     ok(f"Codex installed — {n_skills} skills, {n_agents} agents")
     info("Skills load contextually; full methodology in ~/.codex/AGENTS.md (load `gse-orchestrator` skill for the complete text)")
-    tracker.add("Codex", "plugin", "global", str(CODEX_GLOBAL_DIR), status,
+    tracker.add("Codex", "machine", "global", str(CODEX_GLOBAL_DIR), status,
                 f"{n_skills} skills, {n_agents} agents")
     return True
 
 
 def uninstall_codex_plugin(env):
     """Remove GSE-One Codex artefacts from global locations."""
-    step("Codex CLI — Plugin uninstall (global)")
+    step("Codex CLI — Machine uninstall")
     removed = _codex_remove_components(CODEX_SKILLS_HOME, CODEX_GLOBAL_DIR / "agents",
                                        CODEX_GLOBAL_DIR)
     _strip_agents_md_block(CODEX_GLOBAL_DIR / "AGENTS.md")
@@ -1728,16 +1715,16 @@ def install_codex_no_plugin(project_dir):
     condensed orchestrator → <project>/AGENTS.md (root), hooks →
     <project>/.codex/hooks/hooks.json with `[features] hooks = true` in
     <project>/.codex/config.toml. Registry → <project>/.codex/."""
-    step("Codex CLI — Non-plugin install (project)")
+    step("Codex CLI — Project install")
 
     if not CODEX_PLUGIN_DIR.is_dir():
         err(f"Codex artefacts not found at {CODEX_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("Codex", "no-plugin", "project", str(project_dir), "FAIL", "artefacts missing")
+        tracker.add("Codex", "project", "project", str(project_dir), "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("codex", "no-plugin", project_dir=project_dir):
-        tracker.add("Codex", "no-plugin", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("codex", "project", project_dir=project_dir):
+        tracker.add("Codex", "project", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
         return False
 
     project_dir = Path(project_dir)
@@ -1757,14 +1744,14 @@ def install_codex_no_plugin(project_dir):
     status = "OK" if is_ok else "WARN"
     ok(f"Codex artefacts installed — {n_skills} skills, {n_agents} agents")
     info("AGENTS.md written at project root; skills under .agents/skills/")
-    tracker.add("Codex", "no-plugin", "project", str(codex_dir), status,
+    tracker.add("Codex", "project", "project", str(codex_dir), status,
                 f"{n_skills} skills, {n_agents} agents")
     return True
 
 
 def uninstall_codex_no_plugin(project_dir):
     """Remove GSE-One Codex artefacts from a project."""
-    step("Codex CLI — Non-plugin uninstall (project)")
+    step("Codex CLI — Project uninstall")
     project_dir = Path(project_dir)
     codex_dir = project_dir / ".codex"
     removed = _codex_remove_components(project_dir / ".agents" / "skills",
@@ -1916,16 +1903,16 @@ def install_gemini_plugin(env):
     Copies the self-contained plugin/gemini/ tree (commands, agents, GEMINI.md,
     hooks, gemini-extension.json) and the common runtime assets. Registry →
     the extension dir."""
-    step("Gemini CLI — Plugin install (global extension)")
+    step("Gemini CLI — Machine install (~/.gemini/extensions)")
 
     if not GEMINI_PLUGIN_DIR.is_dir():
         err(f"Gemini artefacts not found at {GEMINI_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("Gemini", "plugin", "global", "-", "FAIL", "artefacts missing")
+        tracker.add("Gemini", "machine", "global", "-", "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("gemini", "plugin"):
-        tracker.add("Gemini", "plugin", "global", "-", "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("gemini", "machine"):
+        tracker.add("Gemini", "machine", "global", "-", "FAIL", "cancelled (duplicate)")
         return False
 
     ensure_dir(GEMINI_EXT_DIR.parent)
@@ -1939,13 +1926,13 @@ def install_gemini_plugin(env):
     status = "OK" if is_ok else "WARN"
     ok(f"Gemini extension installed at {GEMINI_EXT_DIR}")
     info("Commands available as /gse:<name> (e.g., /gse:go, /gse:plan)")
-    tracker.add("Gemini", "plugin", "global", str(GEMINI_EXT_DIR), status, f"{n_cmds} commands")
+    tracker.add("Gemini", "machine", "global", str(GEMINI_EXT_DIR), status, f"{n_cmds} commands")
     return True
 
 
 def uninstall_gemini_plugin(env):
     """Remove the GSE-One Gemini extension."""
-    step("Gemini CLI — Plugin uninstall (global extension)")
+    step("Gemini CLI — Machine uninstall")
     if not GEMINI_EXT_DIR.is_dir():
         info("No GSE-One Gemini extension present — nothing to uninstall.")
         tracker.add("Gemini", "uninstall", "global", str(GEMINI_EXT_DIR), "WARN", "not found")
@@ -1969,16 +1956,16 @@ def install_gemini_no_plugin(project_dir):
     <project>/.gemini/settings.json (the ONLY project-level hook load path —
     a standalone .gemini/hooks/hooks.json is extension-only), context →
     <project>/GEMINI.md (root, surgical merge). Registry → <project>/.gemini/."""
-    step("Gemini CLI — Non-plugin install (project)")
+    step("Gemini CLI — Project install")
 
     if not GEMINI_PLUGIN_DIR.is_dir():
         err(f"Gemini artefacts not found at {GEMINI_PLUGIN_DIR}")
         err("Run: cd gse-one && python3 gse_generate.py --verify")
-        tracker.add("Gemini", "no-plugin", "project", str(project_dir), "FAIL", "artefacts missing")
+        tracker.add("Gemini", "project", "project", str(project_dir), "FAIL", "artefacts missing")
         return False
 
-    if not _check_duplicate_install("gemini", "no-plugin", project_dir=project_dir):
-        tracker.add("Gemini", "no-plugin", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
+    if not _check_duplicate_install("gemini", "project", project_dir=project_dir):
+        tracker.add("Gemini", "project", "project", str(project_dir), "FAIL", "cancelled (duplicate)")
         return False
 
     project_dir = Path(project_dir)
@@ -2005,14 +1992,14 @@ def install_gemini_no_plugin(project_dir):
     ok(f"Gemini artefacts installed — {n_cmds} commands, {n_agents} agents")
     info("GEMINI.md written at project root")
     info("Commands available as /gse:<name> (e.g., /gse:go, /gse:plan)")
-    tracker.add("Gemini", "no-plugin", "project", str(gemini_dir), status,
+    tracker.add("Gemini", "project", "project", str(gemini_dir), status,
                 f"{n_cmds} commands, {n_agents} agents")
     return True
 
 
 def uninstall_gemini_no_plugin(project_dir):
     """Remove GSE-One Gemini artefacts from a project."""
-    step("Gemini CLI — Non-plugin uninstall (project)")
+    step("Gemini CLI — Project uninstall")
     project_dir = Path(project_dir)
     gemini_dir = project_dir / ".gemini"
     removed = _gemini_remove_components(gemini_dir / "commands", gemini_dir / "agents",
@@ -2033,7 +2020,7 @@ def uninstall_gemini_no_plugin(project_dir):
 # Sandbox is supported for CLI agents whose "global" install is a plain
 # file-copy that honors $HOME (so re-running the installer under HOME=<sandbox>
 # lands everything inside the project). Claude (CLI/Keychain-mediated) and
-# Cursor (GUI app) do not isolate cleanly via $HOME → use --mode local instead.
+# Cursor (GUI app) do not isolate cleanly via $HOME → use --mode project instead.
 SANDBOX_PLATFORMS = {"codex", "gemini", "opencode"}
 
 
@@ -2062,14 +2049,14 @@ def _write_launcher(project_dir, platform_name, mode):
 
 def install_sandbox(platform_name, project_dir):
     """Install GSE-One into a project-internal sandbox $HOME and drop the
-    launcher. Re-executes the normal (plugin) install under HOME=<project>/
+    launcher. Re-executes the normal machine-mode install under HOME=<project>/
     .gse-sandbox, so nothing is written under the real $HOME. Idempotent on the
     launcher; re-run to refresh the install."""
     step(f"{platform_name} — Sandbox install (project-internal $HOME)")
 
     if platform_name not in SANDBOX_PLATFORMS:
         err(f"--mode sandbox is not supported for '{platform_name}'.")
-        err("Use --mode local instead (Claude is CLI/Keychain-mediated; Cursor is a GUI app).")
+        err("Use --mode project instead (Claude is CLI/Keychain-mediated; Cursor is a GUI app).")
         tracker.add(platform_name, "sandbox", "project", "-", "FAIL", "unsupported platform")
         return False
 
@@ -2093,7 +2080,7 @@ def install_sandbox(platform_name, project_dir):
     info(f"Installing into project sandbox HOME: {sandbox}")
     result = subprocess.run(
         [sys.executable, str(Path(__file__).resolve()),
-         "--platform", platform_name, "--mode", "plugin"],
+         "--platform", platform_name, "--mode", "machine"],
         env=env,
     )
     if result.returncode != 0:
@@ -2135,41 +2122,6 @@ def _get_skill_names():
     return [d.name for d in sorted(skills_src.iterdir()) if d.is_dir()]
 
 
-def _merge_hooks_into_settings(hooks_file, settings_file):
-    """Merge hooks from a hooks JSON file into a settings.json file."""
-    if not hooks_file.exists():
-        return
-
-    hooks_data = json.loads(hooks_file.read_text())
-
-    if settings_file.exists():
-        settings = json.loads(settings_file.read_text())
-    else:
-        settings = {}
-
-    if "hooks" not in settings:
-        settings["hooks"] = {}
-
-    src_hooks = hooks_data.get("hooks", {})
-    for event, groups in src_hooks.items():
-        if event == "version":
-            continue
-        if event not in settings["hooks"]:
-            settings["hooks"][event] = []
-        settings["hooks"][event].extend(groups)
-
-    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
-
-
-def _set_default_agent(settings_file, agent_name):
-    """Set the default agent in settings.json."""
-    if settings_file.exists():
-        settings = json.loads(settings_file.read_text())
-    else:
-        settings = {}
-
-    settings["agent"] = agent_name
-    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -2219,100 +2171,55 @@ def interactive_menu(env):
         platforms = [chosen_platform]
     results = []
 
+    # One mode question per platform, phrased by need. 'project' = everything
+    # in the project folder (registry at <project>/.gse/registry, nothing
+    # under $HOME); 'machine' = one install for the whole machine, under $HOME;
+    # 'sandbox' = project-internal $HOME (codex/gemini/opencode only).
+    def _mode_choices(plat_key, project_target, machine_target, sandbox_ok):
+        choices = [
+            (f"Everything in this project — {project_target}, nothing under ~ (recommended)", "project"),
+            (f"Whole machine — {machine_target}", "machine"),
+        ]
+        if sandbox_ok:
+            choices.append(("Sandbox — isolated $HOME in .gse-sandbox/ + .gse-sandbox/run launcher", "sandbox"))
+        return choices
+
+    PLATFORM_MENU = {
+        "claude": (".claude/ + .claude/skills/gse plugin", "~/.claude/skills/gse + ~/.gse-one.d", False),
+        "cursor": (".cursor/", "~/.cursor/plugins/local/gse-one", False),
+        "opencode": (".opencode/", "~/.config/opencode", True),
+        "codex": (".codex/ + .agents/skills/", "~/.codex + ~/.agents/skills + ~/.gse-one.d", True),
+        "gemini": (".gemini/", "~/.gemini/extensions/gse-one", True),
+    }
+    PROJECT_INSTALLERS = {
+        "claude": install_claude_project,
+        "cursor": install_cursor_no_plugin,
+        "opencode": install_opencode_no_plugin,
+        "codex": install_codex_no_plugin,
+        "gemini": install_gemini_no_plugin,
+    }
+
     for plat in platforms:
-        if plat == "claude":
-            mode = ask(
-                "Installation mode for Claude Code?",
-                [
-                    ("Plugin — project scope (recommended)", "plugin-project"),
-                    ("Plugin — personal scope (gitignored)", "plugin-local"),
-                    ("Plugin — global scope (all projects)", "plugin-user"),
-                    ("Non-plugin — copy artifacts to .claude/", "no-plugin"),
-                    ("Fully local — .claude/ + project registry, nothing under ~", "local"),
-                ],
-            )
-            if mode in ("no-plugin", "local"):
-                project_dir = _ask_project_dir()
-                _maybe_local(mode, project_dir)
-                results.append(install_claude_no_plugin(project_dir))
-            else:
-                scope = mode.split("-")[1]
-                # Skills-dir installs in project/local scope land in the
-                # project's .claude/skills/ — ask which project.
-                proj = _ask_project_dir() if scope in ("project", "local") else None
-                results.append(install_claude_plugin(scope, proj))
-
-        elif plat == "cursor":
-            mode = ask(
-                "Installation mode for Cursor?",
-                [
-                    ("Plugin — global (copy to ~/.cursor/plugins/)", "plugin"),
-                    ("Non-plugin — copy artifacts to .cursor/", "no-plugin"),
-                    ("Fully local — .cursor/ + project registry, nothing under ~", "local"),
-                ],
-            )
-            if mode in ("no-plugin", "local"):
-                project_dir = _ask_project_dir()
-                _maybe_local(mode, project_dir)
-                results.append(install_cursor_no_plugin(project_dir))
-            else:
+        proj_target, mach_target, sandbox_ok = PLATFORM_MENU[plat]
+        mode = ask(f"Installation mode for {plat}?",
+                   _mode_choices(plat, proj_target, mach_target, sandbox_ok))
+        if mode == "sandbox":
+            results.append(install_sandbox(plat, _ask_project_dir()))
+        elif mode == "project":
+            project_dir = _ask_project_dir()
+            _maybe_local(mode, project_dir)
+            results.append(PROJECT_INSTALLERS[plat](project_dir))
+        else:
+            _maybe_local(mode, None)
+            if plat == "claude":
+                results.append(install_claude_machine())
+            elif plat == "cursor":
                 results.append(install_cursor_plugin(env))
-
-        elif plat == "opencode":
-            mode = ask(
-                "Installation mode for opencode?",
-                [
-                    ("Plugin — global (copy to ~/.config/opencode/)", "plugin"),
-                    ("Non-plugin — copy artifacts to .opencode/ (project)", "no-plugin"),
-                    ("Fully local — .opencode/ + project registry, nothing under ~", "local"),
-                    ("Sandbox — isolated $HOME in .gse-sandbox/ + .gse-sandbox/run launcher", "sandbox"),
-                ],
-            )
-            if mode == "sandbox":
-                results.append(install_sandbox("opencode", _ask_project_dir()))
-            elif mode in ("no-plugin", "local"):
-                project_dir = _ask_project_dir()
-                _maybe_local(mode, project_dir)
-                results.append(install_opencode_no_plugin(project_dir))
-            else:
+            elif plat == "opencode":
                 results.append(install_opencode_plugin(env))
-
-        elif plat == "codex":
-            mode = ask(
-                "Installation mode for Codex CLI?",
-                [
-                    ("Plugin — global (~/.codex/ + ~/.agents/skills/)", "plugin"),
-                    ("Non-plugin — copy artifacts to .codex/ + .agents/ (project)", "no-plugin"),
-                    ("Fully local — project artifacts + project registry, nothing under ~", "local"),
-                    ("Sandbox — isolated $HOME in .gse-sandbox/ + .gse-sandbox/run launcher", "sandbox"),
-                ],
-            )
-            if mode == "sandbox":
-                results.append(install_sandbox("codex", _ask_project_dir()))
-            elif mode in ("no-plugin", "local"):
-                project_dir = _ask_project_dir()
-                _maybe_local(mode, project_dir)
-                results.append(install_codex_no_plugin(project_dir))
-            else:
+            elif plat == "codex":
                 results.append(install_codex_plugin(env))
-
-        elif plat == "gemini":
-            mode = ask(
-                "Installation mode for Gemini CLI?",
-                [
-                    ("Plugin — global extension (~/.gemini/extensions/gse-one/)", "plugin"),
-                    ("Non-plugin — copy artifacts to .gemini/ (project)", "no-plugin"),
-                    ("Fully local — .gemini/ + project registry, nothing under ~", "local"),
-                    ("Sandbox — isolated $HOME in .gse-sandbox/ + .gse-sandbox/run launcher", "sandbox"),
-                ],
-            )
-            if mode == "sandbox":
-                results.append(install_sandbox("gemini", _ask_project_dir()))
-            elif mode in ("no-plugin", "local"):
-                project_dir = _ask_project_dir()
-                _maybe_local(mode, project_dir)
-                results.append(install_gemini_no_plugin(project_dir))
-            else:
+            elif plat == "gemini":
                 results.append(install_gemini_plugin(env))
 
     return all(results)
@@ -2323,39 +2230,38 @@ def interactive_uninstall(env):
     chosen = ask(
         "Uninstall from which platform?",
         [
-            ("Claude Code — plugin", "claude-plugin"),
-            ("Claude Code — non-plugin (current project)", "claude-no-plugin"),
-            ("Cursor — plugin", "cursor-plugin"),
-            ("Cursor — non-plugin (current project)", "cursor-no-plugin"),
-            ("opencode — plugin (global)", "opencode-plugin"),
-            ("opencode — non-plugin (current project)", "opencode-no-plugin"),
-            ("Codex CLI — plugin (global)", "codex-plugin"),
-            ("Codex CLI — non-plugin (current project)", "codex-no-plugin"),
-            ("Gemini CLI — plugin (global extension)", "gemini-plugin"),
-            ("Gemini CLI — non-plugin (current project)", "gemini-no-plugin"),
+            ("Claude Code — project install (current project)", "claude-project"),
+            ("Claude Code — machine install", "claude-machine"),
+            ("Cursor — project install (current project)", "cursor-project"),
+            ("Cursor — machine install", "cursor-machine"),
+            ("opencode — project install (current project)", "opencode-project"),
+            ("opencode — machine install", "opencode-machine"),
+            ("Codex CLI — project install (current project)", "codex-project"),
+            ("Codex CLI — machine install", "codex-machine"),
+            ("Gemini CLI — project install (current project)", "gemini-project"),
+            ("Gemini CLI — machine install", "gemini-machine"),
         ],
     )
 
-    if chosen == "claude-plugin":
-        return uninstall_claude_plugin(_ask_project_dir())
-    elif chosen == "claude-no-plugin":
-        return uninstall_claude_no_plugin(_ask_project_dir())
-    elif chosen == "cursor-plugin":
-        return uninstall_cursor_plugin(env)
-    elif chosen == "cursor-no-plugin":
-        return uninstall_cursor_no_plugin(_ask_project_dir())
-    elif chosen == "opencode-plugin":
-        return uninstall_opencode_plugin(env)
-    elif chosen == "opencode-no-plugin":
-        return uninstall_opencode_no_plugin(_ask_project_dir())
-    elif chosen == "codex-plugin":
-        return uninstall_codex_plugin(env)
-    elif chosen == "codex-no-plugin":
-        return uninstall_codex_no_plugin(_ask_project_dir())
-    elif chosen == "gemini-plugin":
-        return uninstall_gemini_plugin(env)
-    elif chosen == "gemini-no-plugin":
-        return uninstall_gemini_no_plugin(_ask_project_dir())
+    plat, mode = chosen.rsplit("-", 1)
+    if mode == "project":
+        project_dir = _ask_project_dir()
+        _maybe_local(mode, project_dir)
+        return {
+            "claude": uninstall_claude_project,
+            "cursor": uninstall_cursor_no_plugin,
+            "opencode": uninstall_opencode_no_plugin,
+            "codex": uninstall_codex_no_plugin,
+            "gemini": uninstall_gemini_no_plugin,
+        }[plat](project_dir)
+    if plat == "claude":
+        return uninstall_claude_machine()
+    return {
+        "cursor": uninstall_cursor_plugin,
+        "opencode": uninstall_opencode_plugin,
+        "codex": uninstall_codex_plugin,
+        "gemini": uninstall_gemini_plugin,
+    }[plat](env)
 
 
 def _ask_project_dir():
@@ -2387,30 +2293,27 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
   python3 install.py                                          # Interactive
-  python3 install.py --platform claude --mode plugin --scope project
-  python3 install.py --platform cursor --mode plugin
-  python3 install.py --platform opencode --mode plugin
-  python3 install.py --platform codex --mode no-plugin --project-dir /path/to/project
-  python3 install.py --platform codex --mode local --project-dir /path/to/project   # nothing under $HOME
+  python3 install.py --platform claude --mode project        # everything in the project (default mode)
+  python3 install.py --platform codex --mode project --project-dir /path/to/project
+  python3 install.py --platform cursor --mode machine        # once for the whole machine
   python3 install.py --platform codex --mode sandbox --project-dir /path/to/project # isolated $HOME + .gse-sandbox/run launcher
-  python3 install.py --platform gemini --mode plugin
-  python3 install.py --platform both --mode plugin --scope user
-  python3 install.py --platform all --mode plugin --scope user
-  python3 install.py --uninstall --platform gemini --mode plugin
+  python3 install.py --platform all --mode machine
+  python3 install.py --uninstall --platform gemini --mode machine
 """,
     )
     parser.add_argument("--platform",
                         choices=["claude", "cursor", "opencode", "codex", "gemini", "both", "all"],
                         help="Target platform ('both' = claude+cursor, 'all' = all five)")
-    parser.add_argument("--mode", choices=["plugin", "no-plugin", "local", "sandbox"],
-                        help="Installation mode. 'local' = no-plugin + project-local "
-                             "registry (nothing under $HOME). 'sandbox' = HOME-isolated "
-                             "install inside <project>/.gse-sandbox + a .gse-sandbox/run launcher "
-                             "(codex/gemini/opencode only).")
-    parser.add_argument("--scope", choices=["project", "local", "user"], default="project",
-                        help="Plugin scope for Claude Code (default: project). Ignored for Cursor/opencode.")
+    parser.add_argument("--mode", choices=["project", "machine", "sandbox"],
+                        help="Installation mode (default: project). 'project' = everything in "
+                             "the project folder, registry at <project>/.gse/registry, nothing "
+                             "under $HOME. 'machine' = one install for the whole machine, under "
+                             "$HOME. 'sandbox' = HOME-isolated install inside "
+                             "<project>/.gse-sandbox + a .gse-sandbox/run launcher "
+                             "(codex/gemini/opencode only). The pre-0.87.0 names "
+                             "(plugin/no-plugin/local) and --scope were removed.")
     parser.add_argument("--project-dir", type=str,
-                        help="Project directory for non-plugin mode (default: current directory)")
+                        help="Project directory for project/sandbox modes (default: current directory)")
     parser.add_argument("--uninstall", action="store_true", help="Uninstall GSE-One")
     return parser.parse_args()
 
@@ -2451,9 +2354,9 @@ def main():
         platforms = ["claude", "cursor"]
     else:
         platforms = [args.platform]
-    mode = args.mode or "plugin"
-    # Arm fully-local registry placement (no $HOME file) when mode == 'local';
-    # 'local' otherwise behaves exactly like no-plugin for routing below.
+    mode = args.mode or "project"
+    # Project mode is fully project-contained: arm the project-local registry
+    # (<project>/.gse/registry — nothing under $HOME).
     _maybe_local(mode, project_dir)
     results = []
 
@@ -2464,35 +2367,35 @@ def main():
             continue
         if args.uninstall:
             if plat == "claude":
-                results.append(uninstall_claude_plugin(project_dir) if mode == "plugin"
-                               else uninstall_claude_no_plugin(project_dir))
+                results.append(uninstall_claude_machine() if mode == "machine"
+                               else uninstall_claude_project(project_dir))
             elif plat == "cursor":
-                results.append(uninstall_cursor_plugin(env) if mode == "plugin"
+                results.append(uninstall_cursor_plugin(env) if mode == "machine"
                                else uninstall_cursor_no_plugin(project_dir))
             elif plat == "opencode":
-                results.append(uninstall_opencode_plugin(env) if mode == "plugin"
+                results.append(uninstall_opencode_plugin(env) if mode == "machine"
                                else uninstall_opencode_no_plugin(project_dir))
             elif plat == "codex":
-                results.append(uninstall_codex_plugin(env) if mode == "plugin"
+                results.append(uninstall_codex_plugin(env) if mode == "machine"
                                else uninstall_codex_no_plugin(project_dir))
             elif plat == "gemini":
-                results.append(uninstall_gemini_plugin(env) if mode == "plugin"
+                results.append(uninstall_gemini_plugin(env) if mode == "machine"
                                else uninstall_gemini_no_plugin(project_dir))
         else:
             if plat == "claude":
-                results.append(install_claude_plugin(args.scope, project_dir) if mode == "plugin"
-                               else install_claude_no_plugin(project_dir))
+                results.append(install_claude_machine() if mode == "machine"
+                               else install_claude_project(project_dir))
             elif plat == "cursor":
-                results.append(install_cursor_plugin(env) if mode == "plugin"
+                results.append(install_cursor_plugin(env) if mode == "machine"
                                else install_cursor_no_plugin(project_dir))
             elif plat == "opencode":
-                results.append(install_opencode_plugin(env) if mode == "plugin"
+                results.append(install_opencode_plugin(env) if mode == "machine"
                                else install_opencode_no_plugin(project_dir))
             elif plat == "codex":
-                results.append(install_codex_plugin(env) if mode == "plugin"
+                results.append(install_codex_plugin(env) if mode == "machine"
                                else install_codex_no_plugin(project_dir))
             elif plat == "gemini":
-                results.append(install_gemini_plugin(env) if mode == "plugin"
+                results.append(install_gemini_plugin(env) if mode == "machine"
                                else install_gemini_no_plugin(project_dir))
 
     if not quiet:

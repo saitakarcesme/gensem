@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.87.0] - 2026-07-11
+
+*Install modes renamed by user need — dedicated contract-change release, pre-1.0 clean break (BKL-1e56dc25).*
+
+### Changed
+- Changed install modes to `project` (default; ex `local`, absorbing ex `no-plugin`) / `machine` (ex `plugin`) / `sandbox`; old names fail fast with the mapping.
+- Changed Claude project install to a self-contained skills-dir plugin at `.claude/skills/gse/` — `/gse:` namespace, native `gse:*` subagents, zero `$HOME` footprint.
+- Changed Claude project hooks delivery: merged into `.claude/settings.json` so guardrails fire even before the workspace trust dialog (plugin-carried hooks are trust-gated).
+- Changed project mode to always keep its registry at `<project>/.gse/registry` (the `no-plugin` machine-level pointer and its last-install-wins caveat are gone).
+- Changed install.sh version/uninstall detection to also read the project registry.
+
+### Removed
+- Removed modes `plugin`/`no-plugin`/`local`, the Claude-only `--scope` flag and `GSE_SCOPE`, and the dead helpers of the old Claude no-plugin route.
+
+### Fixed
+- Fixed upgrade-in-place over pre-0.87.0 layouts: legacy skills, agents and settings entries are cleaned automatically; user settings keys preserved.
+
 ## [0.86.0] - 2026-07-11
 
 *Compatibility train across the five coding-agent platforms (July 2026 versions); consolidated from `_LOCAL/maintenance/2026-07-11-coding-agents-compatibility.md`, commits f2f1658..88ab871.*
