@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.89.0] - 2026-07-11
 
-*Classroom readiness (backlog BKL-cc94d3cf, BKL-843a9572, BKL-a59cafa0, BKL-7f37c853).*
+*Classroom readiness (backlog BKL-cc94d3cf, BKL-843a9572, BKL-a59cafa0, BKL-7f37c853). Full train synthesis: `docs/post-audit-reports/2026-07-11-coding-agents-compatibility-train.md`.*
 
 ### Changed
 - Changed spec §0.2 Quickstart to honestly describe the greenfield profiling interview (up to a dozen single-tap questions); §7 HUG expectation harmonized.
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.88.0] - 2026-07-11
 
-*Install hygiene quick wins (backlog BKL-f27cce03, BKL-9cda758c, BKL-8be5a4a1, BKL-4850db24).*
+*Install hygiene quick wins (backlog BKL-f27cce03, BKL-9cda758c, BKL-8be5a4a1, BKL-4850db24). Full train synthesis: `docs/post-audit-reports/2026-07-11-coding-agents-compatibility-train.md`.*
 
 ### Added
 - Added opencode duplicate detection for the Codex scan paths (`~/.agents/skills` and `<project>/.agents/skills` — opencode co-loads them).
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.87.0] - 2026-07-11
 
-*Install modes renamed by user need — dedicated contract-change release, pre-1.0 clean break (BKL-1e56dc25).*
+*Install modes renamed by user need — dedicated contract-change release, pre-1.0 clean break (BKL-1e56dc25). Full train synthesis: `docs/post-audit-reports/2026-07-11-coding-agents-compatibility-train.md`.*
 
 ### Changed
 - Changed install modes to `project` (default; ex `local`, absorbing ex `no-plugin`) / `machine` (ex `plugin`) / `sandbox`; old names fail fast with the mapping.
@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.86.0] - 2026-07-11
 
-*Compatibility train across the five coding-agent platforms (July 2026 versions); consolidated from `_LOCAL/maintenance/2026-07-11-coding-agents-compatibility.md`, commits f2f1658..88ab871.*
+*Compatibility train across the five coding-agent platforms (July 2026 versions); consolidated from `_LOCAL/maintenance/2026-07-11-coding-agents-compatibility.md`, commits f2f1658..88ab871. Full train synthesis: `docs/post-audit-reports/2026-07-11-coding-agents-compatibility-train.md`.*
 
 ### Fixed
 - Fixed opencode fatal startup after install (`Unrecognized key: gse`); reinstall repairs broken installs.
