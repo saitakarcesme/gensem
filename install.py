@@ -507,6 +507,15 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
             global_plugin = env["cursor_dir"] / "plugins" / "local" / "gse-one"
             if global_plugin.is_dir():
                 conflicts.append(("plugin (global)", str(global_plugin)))
+        # Legacy pre-0.87.0 Claude layouts left GSE agent .md files in
+        # .claude/agents/, which Cursor auto-loads as subagents (the
+        # orchestrator would leak in, redundant with the .mdc rule). Current
+        # Claude installs keep agents inside the plugin body — re-running the
+        # Claude install cleans the legacy files up.
+        legacy_agents = Path(project_dir or Path.cwd()) / ".claude" / "agents"
+        if legacy_agents.is_dir() and (legacy_agents / "gse-orchestrator.md").exists():
+            conflicts.append(("legacy Claude layout (.claude/agents auto-loaded by Cursor"
+                              " — re-run the Claude install to clean)", str(legacy_agents)))
 
     elif platform_name == "opencode":
         if mode == "machine":
@@ -514,6 +523,11 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
             local = Path(project_dir or Path.cwd()) / ".opencode" / "commands"
             if local.is_dir() and any(local.glob("gse-*.md")):
                 conflicts.append(("project install", str(local.parent)))
+            # opencode also scans ~/.agents/skills/ — where Codex machine
+            # installs put their skills: co-loads every gse-* skill twice.
+            if (CODEX_SKILLS_HOME / "gse-go").is_dir():
+                conflicts.append(("Codex machine install (~/.agents/skills"
+                                  " auto-loaded by opencode)", str(CODEX_SKILLS_HOME)))
         elif mode == "project":
             # Local install — check for a global install that would duplicate skills
             global_skills = OPENCODE_GLOBAL_DIR / "skills"
@@ -524,6 +538,11 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
             claude_skills = Path(project_dir or Path.cwd()) / ".claude" / "skills"
             if _has_gse_skills_in_dir(claude_skills):
                 conflicts.append((".claude/skills (auto-loaded by opencode)", str(claude_skills)))
+            # ... and the project-level Codex scan path (.agents/skills)
+            codex_proj_skills = Path(project_dir or Path.cwd()) / ".agents" / "skills"
+            if (codex_proj_skills / "gse-go").is_dir():
+                conflicts.append((".agents/skills (Codex project install,"
+                                  " auto-loaded by opencode)", str(codex_proj_skills)))
 
     elif platform_name == "codex":
         if mode == "machine":
@@ -549,7 +568,7 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
         for conflict_mode, conflict_path in conflicts:
             warn(f"  → {conflict_mode}: {dim(conflict_path)}")
         warn("Having both will cause duplicate commands (skills appear twice).")
-        warn(f"Uninstall the other first: python3 install.py --uninstall --platform {platform_name} --mode {conflicts[0][0].split(' ')[0]}")
+        warn(f"Uninstall the other first: python3 install.py --uninstall --platform {platform_name} --mode <machine|project>")
         if not confirm("Proceed anyway?"):
             err("Installation cancelled to avoid duplicates.")
             return False

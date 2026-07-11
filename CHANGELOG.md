@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.88.0] - 2026-07-11
+
+*Install hygiene quick wins (backlog BKL-f27cce03, BKL-9cda758c, BKL-8be5a4a1, BKL-4850db24).*
+
+### Added
+- Added opencode duplicate detection for the Codex scan paths (`~/.agents/skills` and `<project>/.agents/skills` — opencode co-loads them).
+- Added Cursor warning on legacy pre-0.87.0 Claude layouts (`.claude/agents` auto-loaded by Cursor; re-running the Claude install cleans them).
+- Added README note: a Claude project install travels with the folder — trust dialog + `/reload-plugins` on another machine, hooks active immediately.
+- Added classroom pre-course tip to `--training-init`: pin `GSE_VERSION` (same version for the cohort; avoids the GitHub API rate limit behind one NAT).
+
+### Fixed
+- Fixed the duplicate-install hint deriving a nonsensical `--mode` from the conflict label.
+
 ## [0.87.0] - 2026-07-11
 
 *Install modes renamed by user need — dedicated contract-change release, pre-1.0 clean break (BKL-1e56dc25).*

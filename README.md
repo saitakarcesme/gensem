@@ -203,9 +203,11 @@ The two situations of [Choosing your installation](#choosing-your-installation) 
 | Codex CLI | `~/.codex/` + `~/.agents/skills/` + `~/.gse-one.d/` | `.codex/` + `.agents/skills/` |
 | Gemini CLI | `~/.gemini/extensions/gse-one/` | `.gemini/` |
 
+**Opening a project install elsewhere (Claude Code).** A `--mode project` install travels with the project folder: when you open it on another machine (or someone else opens your project after cloning it), no install command is needed — Claude shows the workspace trust dialog on first open; accept it and run `/reload-plugins`, and the GSE skills and agents load. The deterministic guardrail hooks (carried by `.claude/settings.json`) are active immediately, even before the trust dialog.
+
 **Pre-0.87.0 mode names (removed).** `plugin` → use `machine`; `no-plugin` and `local` → use `project`; the Claude-only `--scope` flag (and `GSE_SCOPE`) is gone — the level is carried by the mode. The installer fails with this mapping if an old name is used. Also gone with `no-plugin`: its machine-level registry pointer `~/.gse-one` for project installs (it was last-install-wins across projects); project installs now always keep their registry inside the project. Re-running a project install over a pre-0.87.0 layout cleans the old artifacts automatically.
 
-**Sandbox** (previous section) is the fourth setup: a project-internal `$HOME` for training/evaluation — the only mode that also isolates the agent's *runtime* (auth included), not just the files.
+**Sandbox** (previous section) is the third setup: a project-internal `$HOME` for training/evaluation — the only mode that also isolates the agent's *runtime* (auth included), not just the files.
 
 ---
 

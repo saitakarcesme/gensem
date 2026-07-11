@@ -703,6 +703,7 @@ When invoked with `--training-init`:
 4. **Mandatory token step — before distributing anything:** instruct the instructor to generate a **dedicated Coolify API token for the course** (Coolify UI → Keys & Tokens) and re-run `--training-init` with it in `.env` if the current token is their personal one. State the risk explicitly: *"The token embedded in `.env.training` gives every learner WRITE access to ALL applications on the shared Coolify server — any learner can modify or delete other learners' apps (or yours). Use a course-dedicated token, and revoke it in the Coolify UI as soon as the course ends (`--training-reap` cleans the apps, not the token)."*
 5. Display the output path to the instructor and remind them:
    *"Distribute .env.training to your learners. They copy it to their project as .env and set DEPLOY_USER."*
+   *"Pre-course tip: have learners install GSE-One with a pinned version — `GSE_VERSION=vX.Y.Z curl … | sh` — so the whole cohort runs the same version AND you avoid the unauthenticated GitHub API rate limit (~60 requests/hour/IP) when 20 learners install behind one classroom NAT (see README → Troubleshooting → GitHub API rate limit)."*
 
 ### --training-reap Option (Instructor-only)
 
