@@ -129,6 +129,9 @@ def generate_command(src: Path, dst: Path, cmd_name: str) -> None:
     """Convert a SKILL.md source to a flat Cursor command file (gse-<name>.md).
 
     Injects name/description frontmatter in kebab-case for Cursor auto-discovery.
+    The same files serve opencode commands, which IGNORES the `name:` field
+    (opencode derives the command name from the FILE name, already prefixed
+    gse-) — harmless there, required by Cursor: do not remove it (Meta-2).
     """
     content = src.read_text(encoding="utf-8")
     if content.startswith("---"):
@@ -356,7 +359,6 @@ def generate(clean: bool = False) -> None:
 
     cursor_manifest = {
         "name": "gse",
-        "displayName": "GSE-One",
         "description": PLUGIN_DESCRIPTION,
         "version": VERSION,
         "author": {"name": "GSE-One Project"},
@@ -690,7 +692,13 @@ def _oc_translate_agent_frontmatter(content: str) -> str:
     """Return the agent content with opencode-compatible frontmatter.
 
     - Adds `mode: subagent` if absent.
-    - Converts `tools: [A, B]` (list) into `tools:\\n  a: true\\n  b: true` (object).
+
+    Note (Meta-2): a `tools: [A, B]` list translation used to live here,
+    emitting the boolean-object `tools:` form — deprecated by opencode >= 1.1.1
+    in favor of a `permission:` object (allow/ask/deny). No source agent has
+    ever carried a `tools:` list, so the branch was dead code emitting a
+    deprecated form and was removed (2026-07-11). Any FUTURE tool restriction
+    in an agent frontmatter must be authored directly as `permission:`.
     """
     if not content.startswith("---"):
         return content
@@ -699,13 +707,6 @@ def _oc_translate_agent_frontmatter(content: str) -> str:
         return content
     fm = parts[1]
     body = parts[2]
-
-    # Translate tools list → object
-    tools_match = re.search(r'^tools:\s*\[(.*?)\]\s*$', fm, re.MULTILINE)
-    if tools_match:
-        items = [t.strip().strip('"').strip("'") for t in tools_match.group(1).split(",") if t.strip()]
-        object_lines = "\n".join(f"  {item.lower()}: true" for item in items)
-        fm = fm.replace(tools_match.group(0), f"tools:\n{object_lines}")
 
     # Add mode if missing
     if not re.search(r'^mode:\s*', fm, re.MULTILINE):

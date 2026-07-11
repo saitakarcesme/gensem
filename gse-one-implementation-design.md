@@ -136,14 +136,13 @@ Note — `agents` array form: Claude Code ≥ 2.1.x fatally rejects the old dire
 ```json
 {
   "name": "gse",
-  "displayName": "GSE-One",
   "description": "GSE-One — AI engineering companion for structured SDLC management. 24 commands, adaptive risk analysis, unified backlog, knowledge transfer, worktree isolation.",
   "version": "X.Y.Z",
   "author": {
     "name": "GSE-One Project"
   },
   "repository": "https://github.com/gse-one/gse-one",
-  "skills": "./skills/",
+  "commands": "./commands/",
   "agents": "./agents/",
   "rules": "./rules/",
   "hooks": "./hooks/hooks.cursor.json"
@@ -152,7 +151,7 @@ Note — `agents` array form: Claude Code ≥ 2.1.x fatally rejects the old dire
 
 Key differences:
 - Claude uses `hooks` pointing to `hooks.claude.json`; Cursor uses `hooks` pointing to `hooks.cursor.json`
-- Cursor has `displayName` and `rules` fields; Claude does not
+- Cursor has `commands` and `rules` fields; Claude declares `skills` and an `agents` file array (the former `displayName` was dropped in v0.85.x — undocumented in Cursor's manifest reference)
 - Claude loads methodology via `settings.json` → agent reference; Cursor loads via `rules/`
 
 **opencode manifest** (`opencode.json`) — opencode differs from Claude/Cursor: it does not declare `skills`/`agents`/`hooks` at top level (those are discovered from well-known directories), and it must contain schema-valid keys only — opencode ≥ 1.17 fatally rejects unknown root keys (`Unrecognized key`), which is why the Axe 2 repository metadata lives in the registry-target `gse.json`, not here. Instead, `opencode.json` declares a `permission` block with methodology defaults: `skill: { "*": "allow" }` (all GSE-One skills enabled), `question: "allow"` (native interactive-question tool — supports P4 interactive mode QCM across runtimes, cf. spec §14.3 — Activity Execution Fidelity Invariant), and a short `bash` denylist (`git push --force`, `rm -rf /`). Removing any of these from the default silently degrades functionality — notably, removing `question` forces QCM interactions into per-call permission prompts or text fallback.

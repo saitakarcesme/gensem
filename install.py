@@ -387,13 +387,13 @@ def _remove_common_assets(target):
 def _rewrite_skill_frontmatter_name(skill_md_path, new_name):
     """Rewrite the `name:` field of a SKILL.md YAML frontmatter to new_name.
 
-    Required by claude no-plugin install: directories are renamed to
-    `gse-<name>/` to namespace skills inside .claude/skills, but Claude Code 2.x
-    indexes skills by the frontmatter `name:` field — not the directory name.
-    Without this rewrite, the slash command exposed in the TUI is `/<name>`
-    (the original frontmatter value) instead of the intended `/gse-<name>`,
-    which (a) breaks the documented no-plugin UX and (b) pollutes the global
-    skill namespace, colliding with any project skill of the same short name.
+    Used by the claude no-plugin install: directories are renamed to
+    `gse-<name>/` to namespace skills inside .claude/skills. On current
+    Claude Code the command name comes from the DIRECTORY name — the
+    frontmatter `name:` is a display label (it only drives the command name
+    for a SKILL.md at a plugin root). Both are renamed IN SYNC so the exposed
+    `/gse-<name>` never depends on which of the two a given CLI version
+    reads — do not remove either half of the rename.
 
     Returns True if the file was modified, False if no change applied (file
     missing, no frontmatter, or no `name:` line found within frontmatter).
@@ -899,9 +899,9 @@ def install_claude_no_plugin(project_dir):
             prefixed_name = f"gse-{skill_dir.name}"
             dst = skills_dst / prefixed_name
             copy_tree(skill_dir, dst)
-            # Claude Code 2.x indexes skills by SKILL.md frontmatter `name:`,
-            # not by directory name. Rewrite the field so the slash command
-            # actually exposed matches the prefixed directory.
+            # The directory rename above is what names the command on current
+            # Claude Code; the frontmatter `name:` (display label) is aligned
+            # too so both stay consistent whichever one a CLI version reads.
             _rewrite_skill_frontmatter_name(dst / "SKILL.md", prefixed_name)
             count += 1
     ok(f"Copied {count} skills to {skills_dst} (prefixed as gse-<name>)")
