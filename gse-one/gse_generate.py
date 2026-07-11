@@ -764,8 +764,11 @@ export const GseGuardrails: Plugin = async () => {{
       }}
     }},
 
-    "tool.execute.after": async (input: any, _output: any) => {{
-      // Bash / git push — open review findings warning
+    "tool.execute.after": async (input: any, output: any) => {{
+      // Bash / git push — open review findings warning.
+      // Appended to output.output (the tool result the MODEL reads): a
+      // console.warn only reaches the session UI, leaving the agent blind to
+      // the warning — verified empirically on opencode 1.17.18 (2026-07-11).
       if (input?.tool === "bash") {{
         const cmd = String(input?.args?.command ?? "")
         if (/\\bgit\\s[^|;&]*\\bpush\\b/.test(cmd)) {{
@@ -776,8 +779,8 @@ export const GseGuardrails: Plugin = async () => {{
             const status = await Bun.file(".gse/status.yaml").text()
             const m = status.match(/review_findings_open:\\s*(\\d+)/)
             const open = m ? parseInt(m[1], 10) : 0
-            if (open > 0) {{
-              console.warn(`WARNING: ${{open}} open review findings`)
+            if (open > 0 && output) {{
+              output.output = `${{output.output ?? ""}}\\nWARNING: ${{open}} open review findings`
             }}
           }} catch {{
             // .gse/status.yaml absent — nothing to report
@@ -786,15 +789,22 @@ export const GseGuardrails: Plugin = async () => {{
         return
       }}
 
-      // Dashboard sync — fire on edit/write/multiedit (ENH-02).
+      // Dashboard sync — fire on edit/write (ENH-02; opencode has no
+      // multiedit tool — retired alongside the Claude MultiEdit matcher).
       // Mirrors the PostToolUse hooks in hooks.claude.json / hooks.cursor.json,
       // including the double-defense error marker on subprocess failure.
       const toolName = String(input?.tool ?? "").toLowerCase()
-      if (["edit", "write", "multiedit"].includes(toolName)) {{
+      if (["edit", "write"].includes(toolName)) {{
         try {{
-          const home = process.env.HOME ?? ""
-          const registryPath = `${{home}}/.gse-one`
-          const registryFile = Bun.file(registryPath)
+          // Project-local-first registry resolution — same contract as the
+          // shell incantation ($([ -s .gse/registry ] && ...) || ~/.gse-one):
+          // without it, fully-local installs (registry in .gse/registry,
+          // nothing under $HOME) never resolve the dashboard tool.
+          let registryFile = Bun.file(".gse/registry")
+          if (!(await registryFile.exists())) {{
+            const home = process.env.HOME ?? ""
+            registryFile = Bun.file(`${{home}}/.gse-one`)
+          }}
           if (!(await registryFile.exists())) return
           const pluginPath = (await registryFile.text()).trim()
           if (!pluginPath) return
