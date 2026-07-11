@@ -74,7 +74,10 @@ detect_mode() {
 }
 
 # Translate detected platforms into install.py --platform value.
-# Passes overrides through as-is; collapses 2+ PATH-detected binaries to 'all'.
+# Passes overrides through as-is. Exactly one PATH-detected binary → that one;
+# two or more → 'ambiguous:<list>' (the caller refuses to guess: one agent per
+# project is the norm, GSE_PLATFORM must name it — GSE_PLATFORM=all opts into
+# installing on every detected agent).
 detect_platform_flag() {
     if [ -n "${GSE_PLATFORM:-}" ]; then printf '%s' "$GSE_PLATFORM"; return; fi
     found=""
@@ -84,7 +87,7 @@ detect_platform_flag() {
     command -v codex    >/dev/null 2>&1 && found="$found codex"
     command -v gemini   >/dev/null 2>&1 && found="$found gemini"
     count=$(printf '%s' "$found" | wc -w | tr -d ' ')
-    if   [ "$count" -ge 2 ]; then printf 'all'
+    if   [ "$count" -ge 2 ]; then printf 'ambiguous:%s' "$found"
     elif [ "$count" -eq 1 ]; then printf '%s' "$(printf '%s' "$found" | tr -d ' ')"
     fi
 }
@@ -152,9 +155,19 @@ run_install_py() {
 # Shared prelude for install/uninstall: preflight, detect, resolve, download.
 # Sets globals: mode, plat_flag, scope, project_dir, target_tag, install_root.
 prepare() {
+    # $1: 'install' (default) or 'uninstall' — install refuses platform
+    # ambiguity BEFORE downloading anything; uninstall maps it to 'all'.
     preflight
     mode=$(detect_mode)
     plat_flag=$(detect_platform_flag)
+    case "$plat_flag" in
+        ambiguous:*)
+            if [ "${1:-install}" = "install" ]; then
+                detected=${plat_flag#ambiguous:}
+                fail "several coding agents detected on PATH:${detected}. One agent per project is the norm — name yours, e.g.: GSE_PLATFORM=codex sh -c \"\$(curl -fsSL .../install.sh)\". Use GSE_PLATFORM=all to install on every detected agent."
+            fi
+            ;;
+    esac
     scope="${GSE_SCOPE:-user}"
     project_dir="${GSE_PROJECT_DIR:-}"
     if [ "$mode" != "plugin" ] && [ -z "$project_dir" ]; then
@@ -222,9 +235,10 @@ subcmd_uninstall() {
         exit 0
     fi
 
-    prepare
+    prepare uninstall
     # If nothing in PATH but registry exists, fall back to 'all'.
-    [ -n "$plat_flag" ] || plat_flag=all
+    # Uninstall sweeps every detected agent: ambiguity is not a risk here.
+    case "$plat_flag" in ""|ambiguous:*) plat_flag=all ;; esac
 
     info "Uninstalling GSE-One (platforms: ${plat_flag}, mode: ${mode}, version: ${target_tag})"
 

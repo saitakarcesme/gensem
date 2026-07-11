@@ -14,10 +14,12 @@ GSE-One (Generative Software Engineering One) is an AI engineering companion tha
 ## Table of Contents
 
 1. [Key Features](#key-features)
-2. [Quick install (curl | sh)](#quick-install-curl--sh)
-3. [Environment variables](#environment-variables)
-4. [Sandbox mode (isolated run)](#sandbox-mode-isolated-run)
-5. [Troubleshooting](#troubleshooting)
+2. [Choosing your installation](#choosing-your-installation)
+3. [Quick install (curl | sh)](#quick-install-curl--sh)
+4. [Environment variables](#environment-variables)
+5. [Sandbox mode (isolated run)](#sandbox-mode-isolated-run)
+6. [Advanced configurations](#advanced-configurations)
+7. [Troubleshooting](#troubleshooting)
 6. [Manual install (maintainers, forks, Windows without WSL)](#manual-install-maintainers-forks-windows-without-wsl)
 7. [Mono-plugin Architecture](#mono-plugin-architecture)
 8. [Develop and Generate](#develop-and-generate)
@@ -41,9 +43,47 @@ GSE-One (Generative Software Engineering One) is an AI engineering companion tha
 
 ---
 
+## Choosing your installation
+
+Two setups cover the vast majority of users. Pick your situation, copy the command, run it — details and edge cases live in [Advanced configurations](#advanced-configurations).
+
+### Situation 1 — Everything in the project folder *(most common)*
+
+One GSE-One install **per project**, fully self-contained: nothing is written to your home directory, the project can be committed or synced whole (Dropbox, another machine — it keeps working), and each project pins its own GSE version. Run the command **inside the project folder**, naming your coding agent:
+
+| Coding agent | Command (run inside your project) | Comments |
+|---|---|---|
+| Claude Code | `GSE_PLATFORM=claude GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands appear as `/gse-go` (dash form). Writes `.claude/` + `.gse/registry`. |
+| Cursor | `GSE_PLATFORM=cursor GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.cursor/` + `.gse/registry`. |
+| opencode | `GSE_PLATFORM=opencode GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse-go`. Writes `.opencode/` + merges `opencode.json` + `.gse/registry`. |
+| Codex CLI | `GSE_PLATFORM=codex GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Skills as `$gse-go` (no slash form on Codex). After install: open `/hooks` once and approve the GSE hooks. |
+| Gemini CLI | `GSE_PLATFORM=gemini GSE_MODE=local sh -c "$(curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh)"` | Commands as `/gse:go`. Accept the folder-trust prompt on first launch. |
+
+**Updating this project:** re-run the same command inside the project — each project updates independently.
+
+### Situation 2 — GSE once for the whole machine
+
+GSE-One installs **into your home directory**; every project you open gets it, and one update updates them all. The project keeps only its own state (`.gse/`, sprint docs). From a clone of this repo:
+
+| Coding agent | Command | Comments |
+|---|---|---|
+| Claude Code | `python3 install.py --platform claude --mode plugin --scope user` | Plugin namespace `/gse:go`; installs to `~/.claude/skills/gse/` + `~/.gse-one.d/`. |
+| Cursor | `python3 install.py --platform cursor --mode plugin` | Installs to `~/.cursor/plugins/local/gse-one/`. |
+| opencode | `python3 install.py --platform opencode --mode plugin` | Installs to `~/.config/opencode/`. |
+| Codex CLI | `python3 install.py --platform codex --mode plugin` | `~/.codex/` + `~/.agents/skills/` + `~/.gse-one.d/`; approve the GSE hooks once in `/hooks`. |
+| Gemini CLI | `python3 install.py --platform gemini --mode plugin` | Extension at `~/.gemini/extensions/gse-one/`. |
+
+*(Without a clone: the curl command of Situation 1 with `GSE_MODE=plugin` does the same.)*
+
+**One agent per project is the norm:** if several coding agents are on your PATH, the installer refuses to guess — name yours with `GSE_PLATFORM=…` (or `--platform`). With exactly one agent installed, it is picked automatically. To really install on every detected agent at once, set `GSE_PLATFORM=all` explicitly.
+
+Other needs — throwaway isolated environments (training, evaluation), the Claude project-scope plugin variant, the legacy `no-plugin` mode, and the full machine-vs-project matrix — are covered in [Advanced configurations](#advanced-configurations).
+
+---
+
 ## Quick install (curl | sh)
 
-One command installs GSE-One on every coding agent it detects (Claude Code, Cursor, opencode, Codex CLI, Gemini CLI) — no clone, no prompts.
+One command installs GSE-One for your coding agent — no clone, no prompts (see [Choosing your installation](#choosing-your-installation) to pick the right variables).
 
 **Run it from inside your project folder** (create one first if needed) — the installer targets the current directory:
 
@@ -58,7 +98,7 @@ curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.s
 curl -fsSL https://raw.githubusercontent.com/nicolasguelfi/gensem/main/install.sh | sh -s -- upgrade
 ```
 
-The script auto-detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH and installs on all of them **inside the current directory** (no-plugin mode). It creates a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder per detected platform and writes a registry marker `~/.gse-one` pointing at the chosen platform dir — nothing is installed globally by default. To install as a user-scope plugin instead, set `GSE_MODE=plugin` explicitly.
+The script detects which of Claude Code, Cursor, opencode, Codex CLI, and Gemini CLI are on your PATH. With **exactly one** agent installed it is picked automatically; with **several**, the script stops and asks you to name yours via `GSE_PLATFORM=…` (set `GSE_PLATFORM=all` to really target every detected agent). It installs **inside the current directory** (no-plugin mode): a `.claude/`, `.cursor/`, `.opencode/`, `.codex/` (+ `.agents/skills/`), or `.gemini/` subfolder, plus a registry marker `~/.gse-one` pointing at the platform dir — nothing else is installed globally by default. Set `GSE_MODE=local` for a fully project-contained install (registry inside the project, nothing under `$HOME` — see [Choosing your installation](#choosing-your-installation)), or `GSE_MODE=plugin` for a machine-level install.
 
 Once finished, open your coding agent and start GSE-One. The entry command differs per platform:
 
@@ -90,7 +130,7 @@ The curl installer reads five environment variables that override auto-detection
 
 | Variable | Values | Description |
 |---|---|---|
-| `GSE_PLATFORM` | `claude` \| `cursor` \| `opencode` \| `codex` \| `gemini` \| `all` \| `both` | Restrict install to one platform — `both` = claude + cursor, `all` = every supported platform (default: every platform detected on PATH) |
+| `GSE_PLATFORM` | `claude` \| `cursor` \| `opencode` \| `codex` \| `gemini` \| `all` \| `both` | Target platform — `both` = claude + cursor, `all` = every supported platform. Default: the single agent detected on PATH; with several agents detected the installer refuses to guess and asks for this variable |
 | `GSE_MODE` | `plugin` \| `no-plugin` \| `local` \| `sandbox` | Plugin, or copy artifacts into a project's `.claude/` / `.cursor/` / `.opencode/` / `.codex/` / `.gemini/`. `local` = no-plugin **+ project registry, nothing under `$HOME`** (self-contained / committable). `sandbox` = **isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher** to start the agent fully isolated (codex/gemini/opencode) |
 | `GSE_SCOPE` | `project` \| `local` \| `user` | Claude Code plugin scope only (default: `user`); ignored by Cursor, opencode, Codex, and Gemini |
 | `GSE_VERSION` | `latest` \| `vX.Y.Z` | Release tag to install; `latest` resolves via the GitHub API (default: `latest`) |
@@ -147,6 +187,28 @@ sh .gse-sandbox/run --bypass      # fully unprotected — use with care
 ```
 
 > **opencode / Cursor:** permissions are config-driven (`.opencode/opencode.json` `permission`) or an app setting (Cursor → Settings → Agent → Auto-Run), so the launcher injects no flag and prints a note instead.
+
+---
+
+## Advanced configurations
+
+The two situations of [Choosing your installation](#choosing-your-installation) cover most users. The remaining setups:
+
+**The machine-vs-project matrix.** Behind `--mode` and `--scope` sit two independent questions — *who sees GSE* (the whole machine, or one project) and *how the platform loads it* (native plugin system, or plain file copy). On four platforms the level is implied by the mode (plugin ⇒ machine; no-plugin/local ⇒ project); only Claude's plugin mechanism natively supports both levels, hence its extra `--scope` flag:
+
+| Platform | GSE for the whole machine | GSE for one project |
+|---|---|---|
+| Claude Code | `--mode plugin --scope user` → `~/.claude/skills/gse/` | `--mode local` → `.claude/` **or** `--mode plugin --scope project` → `.claude/skills/gse/` (see below) |
+| Cursor | `--mode plugin` → `~/.cursor/plugins/local/gse-one/` | `--mode local` / `no-plugin` → `.cursor/` |
+| opencode | `--mode plugin` → `~/.config/opencode/` | `--mode local` / `no-plugin` → `.opencode/` |
+| Codex CLI | `--mode plugin` → `~/.codex/` + `~/.agents/skills/` | `--mode local` / `no-plugin` → `.codex/` + `.agents/skills/` |
+| Gemini CLI | `--mode plugin` → `~/.gemini/extensions/gse-one/` | `--mode local` / `no-plugin` → `.gemini/` |
+
+**Claude: two routes to project level.** `--mode plugin --scope project` installs a real plugin under `<project>/.claude/skills/gse/`: cleaner footprint (one directory), the `/gse:go` namespace, and native `gse:*` subagents — but it still writes the `~/.gse-one.d/` side-install under `$HOME`, and the workspace must be trusted (accept the dialog, then `/reload-plugins`). `--mode local` is the strict "everything in the project" answer (`/gse-go` dash commands, zero `$HOME` footprint). The `local` **scope** value maps to `project` (skills-dir plugins have two levels only).
+
+**Legacy `--mode no-plugin`.** Identical to `local` except the registry marker is the machine-level file `~/.gse-one` instead of `<project>/.gse/registry`. Caveat with several GSE projects: that single global pointer is rewritten by each install — the last-installed project wins for every no-plugin project on the machine. Prefer `local`.
+
+**Sandbox** (previous section) is the fourth setup: a project-internal `$HOME` for training/evaluation — the only mode that also isolates the agent's *runtime* (auth included), not just the files.
 
 ---
 
