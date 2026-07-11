@@ -34,8 +34,9 @@ OPENCODE_GLOBAL_DIR = Path.home() / ".config" / "opencode"
 
 # Codex CLI install targets. Skills live under .agents/skills/ (Codex scan
 # path); agents are TOML under .codex/agents/; AGENTS.md is the always-on
-# context (condensed lite edition); hooks under .codex/hooks/hooks.json need
-# `[features] hooks = true` in config.toml.
+# context (condensed lite edition); hooks live FLAT at .codex/hooks.json
+# (the only standalone discovery path) and require the user's one-time
+# /hooks trust approval to actually run.
 CODEX_PLUGIN_DIR = PLUGIN_DIR / "codex"
 CODEX_GLOBAL_DIR = Path.home() / ".codex"
 CODEX_SKILLS_HOME = Path.home() / ".agents" / "skills"
@@ -1524,22 +1525,57 @@ def _codex_copy_agents(agents_target):
     return count
 
 
-def _codex_copy_hooks(hooks_dir):
-    """Copy codex hooks.json into hooks_dir/hooks.json (warns on overwrite)."""
+def _codex_copy_hooks(codex_dir):
+    """Copy codex hooks.json to the FLAT discovery path <codex_dir>/hooks.json.
+
+    Standalone (non-plugin) Codex hook discovery only reads ~/.codex/hooks.json,
+    <repo>/.codex/hooks.json and the config.toml entries — the hooks/hooks.json
+    sub-directory form is honored only inside a real Codex plugin, so installs
+    that used it shipped dead files (guardrails silently inert). Refuses to
+    overwrite a pre-existing non-GSE hooks.json; removes the legacy sub-directory
+    form left by installs <= 0.85.x.
+    """
     src = CODEX_PLUGIN_DIR / "hooks" / "hooks.json"
-    ensure_dir(hooks_dir)
-    dst = Path(hooks_dir) / "hooks.json"
+    codex_dir = Path(codex_dir)
+    ensure_dir(codex_dir)
+    dst = codex_dir / "hooks.json"
     if dst.exists():
-        warn(f"Overwriting existing {dst}")
+        try:
+            existing = dst.read_text(encoding="utf-8")
+        except OSError:
+            existing = ""
+        if "GUARDRAIL" not in existing:
+            warn(f"{dst} already exists and is not GSE-managed — left untouched.")
+            warn(f"  Merge the GSE hooks manually from {src} if you want the guardrails.")
+            return
     shutil.copy2(src, dst)
+    ok(f"Copied hooks to {dst}")
+    legacy = codex_dir / "hooks"
+    if (legacy / "hooks.json").exists():
+        remove_path(legacy)
+        ok(f"Removed legacy {legacy}/ (not a Codex discovery path)")
+
+
+def _codex_print_trust_notice():
+    """Post-install notice: since Codex 0.129, command hooks only run after the
+    user approves them in the /hooks TUI — without that approval the installed
+    guardrails do not execute (headless `codex exec` included)."""
+    info("Codex hook trust: launch `codex`, open /hooks, and approve the")
+    info("  GSE-One hooks — unapproved hooks do NOT run (guardrails inert).")
+    info("  For headless automation only, `--dangerously-bypass-hook-trust`")
+    info("  exists; GSE does not set it for you (it defeats the trust model).")
 
 
 def _codex_enable_hooks_flag(config_toml_path):
-    """Ensure `hooks = true` under `[features]` in a Codex config.toml — guardrails
-    are inert without it. `[features] hooks = true` is the canonical key; the old
-    top-level `codex_hooks = true` is a deprecated alias (removed here if present
-    to avoid ambiguity). Minimal stdlib TOML edit, section-aware: preserves the
-    rest of the file, comments, and other sections."""
+    """Ensure `hooks = true` under `[features]` in a Codex config.toml.
+
+    Hooks are enabled BY DEFAULT on current Codex versions — this flag is a
+    safety belt for older versions and for users who explicitly set
+    `hooks = false`, not the cause of guardrail inertia (the real activation
+    requirements are the flat hooks.json discovery path and the /hooks trust
+    approval). The old top-level `codex_hooks = true` is a deprecated alias
+    (removed here if present to avoid ambiguity). Minimal stdlib TOML edit,
+    section-aware: preserves the rest of the file, comments, and sections."""
     import re
     config_toml_path = Path(config_toml_path)
     ensure_dir(config_toml_path.parent)
@@ -1578,7 +1614,7 @@ def _codex_enable_hooks_flag(config_toml_path):
     ok(f"Enabled [features] hooks = true in {config_toml_path}")
 
 
-def _codex_remove_components(skills_target, agents_target, hooks_dir):
+def _codex_remove_components(skills_target, agents_target, codex_dir_for_hooks):
     """Remove GSE-One Codex artefacts from the given target dirs. Returns count."""
     removed = 0
     skills_target = Path(skills_target)
@@ -1596,10 +1632,15 @@ def _codex_remove_components(skills_target, agents_target, hooks_dir):
             if t.exists():
                 t.unlink()
                 removed += 1
-    hooks_json = Path(hooks_dir) / "hooks.json"
-    if hooks_json.exists():
-        hooks_json.unlink()
-        removed += 1
+    # Flat discovery path (current) + legacy hooks/ sub-directory (<= 0.85.x)
+    codex_dir = Path(codex_dir_for_hooks)
+    for hooks_json in (codex_dir / "hooks.json", codex_dir / "hooks" / "hooks.json"):
+        if hooks_json.exists():
+            hooks_json.unlink()
+            removed += 1
+    legacy_dir = codex_dir / "hooks"
+    if legacy_dir.is_dir() and not any(legacy_dir.iterdir()):
+        legacy_dir.rmdir()
     return removed
 
 
@@ -1642,8 +1683,9 @@ def install_codex_plugin(env):
     n_skills = _codex_copy_skills(CODEX_SKILLS_HOME)
     n_agents = _codex_copy_agents(CODEX_GLOBAL_DIR / "agents")
     _merge_agents_md(CODEX_GLOBAL_DIR / "AGENTS.md", CODEX_PLUGIN_DIR / "AGENTS.md")
-    _codex_copy_hooks(CODEX_GLOBAL_DIR / "hooks")
+    _codex_copy_hooks(CODEX_GLOBAL_DIR)
     _codex_enable_hooks_flag(CODEX_GLOBAL_DIR / "config.toml")
+    _codex_print_trust_notice()
 
     # Common runtime assets at the side-install location (stable shell path).
     _copy_common_assets(GSE_ONE_DATA_DIR)
@@ -1663,7 +1705,7 @@ def uninstall_codex_plugin(env):
     """Remove GSE-One Codex artefacts from global locations."""
     step("Codex CLI — Plugin uninstall (global)")
     removed = _codex_remove_components(CODEX_SKILLS_HOME, CODEX_GLOBAL_DIR / "agents",
-                                       CODEX_GLOBAL_DIR / "hooks")
+                                       CODEX_GLOBAL_DIR)
     _strip_agents_md_block(CODEX_GLOBAL_DIR / "AGENTS.md")
     _remove_common_assets(GSE_ONE_DATA_DIR)
     if GSE_ONE_DATA_DIR.exists() and not any(GSE_ONE_DATA_DIR.iterdir()):
@@ -1703,8 +1745,9 @@ def install_codex_no_plugin(project_dir):
     n_skills = _codex_copy_skills(project_dir / ".agents" / "skills")
     n_agents = _codex_copy_agents(codex_dir / "agents")
     _merge_agents_md(project_dir / "AGENTS.md", CODEX_PLUGIN_DIR / "AGENTS.md")
-    _codex_copy_hooks(codex_dir / "hooks")
+    _codex_copy_hooks(codex_dir)
     _codex_enable_hooks_flag(codex_dir / "config.toml")
+    _codex_print_trust_notice()
 
     _copy_common_assets(codex_dir)
     ok(f"Copied common assets (tools, templates, references, VERSION) to {codex_dir}")
@@ -1725,7 +1768,7 @@ def uninstall_codex_no_plugin(project_dir):
     project_dir = Path(project_dir)
     codex_dir = project_dir / ".codex"
     removed = _codex_remove_components(project_dir / ".agents" / "skills",
-                                       codex_dir / "agents", codex_dir / "hooks")
+                                       codex_dir / "agents", codex_dir)
     _strip_agents_md_block(project_dir / "AGENTS.md")
     _remove_common_assets(codex_dir)
     _remove_registry()
@@ -1762,14 +1805,68 @@ def _gemini_copy_agents(agents_target):
     return count
 
 
-def _gemini_copy_hooks(hooks_dir):
-    """Copy gemini hooks.json into hooks_dir/hooks.json (warns on overwrite)."""
-    src = GEMINI_PLUGIN_DIR / "hooks" / "hooks.json"
-    ensure_dir(hooks_dir)
-    dst = Path(hooks_dir) / "hooks.json"
-    if dst.exists():
-        warn(f"Overwriting existing {dst}")
-    shutil.copy2(src, dst)
+def _gemini_hooks_is_gse(entry):
+    """True if a settings.json hook entry is GSE-managed (its commands read
+    .gse/ state — the stable marker of the shared guardrail one-liners)."""
+    return ".gse" in json.dumps(entry)
+
+
+def _gemini_merge_hooks_into_settings(settings_file):
+    """Merge the GSE hook entries into <project>/.gemini/settings.json.
+
+    Gemini CLI loads project-level hooks ONLY from the `hooks` object of
+    .gemini/settings.json (a standalone .gemini/hooks/hooks.json is honored
+    exclusively inside an extension directory — installs <= 0.85.x shipped a
+    dead file there, guardrails silently inert). Preserves user keys and
+    non-GSE hook entries; replaces previous GSE entries in place.
+    """
+    src = json.loads((GEMINI_PLUGIN_DIR / "hooks" / "hooks.json").read_text())
+    settings_file = Path(settings_file)
+    ensure_dir(settings_file.parent)
+    if settings_file.exists():
+        try:
+            settings = json.loads(settings_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            warn(f"Could not parse existing {settings_file}; leaving it untouched.")
+            warn("  GSE hooks NOT installed — fix the file and re-run the installer.")
+            return False
+    else:
+        settings = {}
+    hooks = settings.setdefault("hooks", {})
+    for event, entries in src.get("hooks", {}).items():
+        kept = [e for e in hooks.get(event, []) if not _gemini_hooks_is_gse(e)]
+        hooks[event] = kept + entries
+    settings_file.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    ok(f"Merged GSE hooks into {settings_file}")
+    return True
+
+
+def _gemini_strip_hooks_from_settings(settings_file):
+    """Remove GSE hook entries from .gemini/settings.json (keeps user content)."""
+    settings_file = Path(settings_file)
+    if not settings_file.exists():
+        return 0
+    try:
+        settings = json.loads(settings_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return 0
+    removed = 0
+    hooks = settings.get("hooks", {})
+    for event in list(hooks.keys()):
+        kept = [e for e in hooks[event] if not _gemini_hooks_is_gse(e)]
+        removed += len(hooks[event]) - len(kept)
+        if kept:
+            hooks[event] = kept
+        else:
+            del hooks[event]
+    if not hooks:
+        settings.pop("hooks", None)
+    if settings:
+        settings_file.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    else:
+        settings_file.unlink()
+        ok(f"Removed {settings_file} (only GSE-One content)")
+    return removed
 
 
 def _gemini_remove_components(commands_target, agents_target, hooks_dir):
@@ -1868,9 +1965,10 @@ def install_gemini_no_plugin(project_dir):
     """Install GSE-One Gemini artefacts into a project.
 
     Commands → <project>/.gemini/commands/gse/, agents →
-    <project>/.gemini/agents/, hooks → <project>/.gemini/hooks/hooks.json,
-    context → <project>/GEMINI.md (root, surgical merge). Registry →
-    <project>/.gemini/."""
+    <project>/.gemini/agents/, hooks → merged into the `hooks` object of
+    <project>/.gemini/settings.json (the ONLY project-level hook load path —
+    a standalone .gemini/hooks/hooks.json is extension-only), context →
+    <project>/GEMINI.md (root, surgical merge). Registry → <project>/.gemini/."""
     step("Gemini CLI — Non-plugin install (project)")
 
     if not GEMINI_PLUGIN_DIR.is_dir():
@@ -1887,7 +1985,14 @@ def install_gemini_no_plugin(project_dir):
     gemini_dir = project_dir / ".gemini"
     n_cmds = _gemini_copy_commands(gemini_dir / "commands")
     n_agents = _gemini_copy_agents(gemini_dir / "agents")
-    _gemini_copy_hooks(gemini_dir / "hooks")
+    _gemini_merge_hooks_into_settings(gemini_dir / "settings.json")
+    # Clean up the dead standalone file shipped by installs <= 0.85.x
+    legacy_hooks = gemini_dir / "hooks" / "hooks.json"
+    if legacy_hooks.exists():
+        legacy_hooks.unlink()
+        if not any((gemini_dir / "hooks").iterdir()):
+            (gemini_dir / "hooks").rmdir()
+        ok(f"Removed legacy {legacy_hooks} (not a Gemini project-level load path)")
     # GEMINI.md at project root (Gemini's worktree context convention)
     _merge_agents_md(project_dir / "GEMINI.md", GEMINI_PLUGIN_DIR / "GEMINI.md")
 
@@ -1912,6 +2017,7 @@ def uninstall_gemini_no_plugin(project_dir):
     gemini_dir = project_dir / ".gemini"
     removed = _gemini_remove_components(gemini_dir / "commands", gemini_dir / "agents",
                                         gemini_dir / "hooks")
+    removed += _gemini_strip_hooks_from_settings(gemini_dir / "settings.json")
     _strip_agents_md_block(project_dir / "GEMINI.md")
     _remove_common_assets(gemini_dir)
     _remove_registry()

@@ -209,7 +209,7 @@ cd my-project
 
 Then start GSE-One with your agent's entry command (`/gse-go`, `/gse:go`, or Codex's `$gse-go` — see [Your first session](#your-first-session)).
 
-> **What "no-plugin" writes.** Artifacts go into the project's platform dir (`.claude/`, `.cursor/`, `.opencode/`, `.codex/`, or `.gemini/`); nothing global except `~/.gse-one` (one line with the plugin path, removed by `python3 gensem/install.py --uninstall`). For a fully committable project with **nothing** under `$HOME`, use `--mode local` instead. Commands use the `gse-` dash prefix in no-plugin mode; the colon form `/gse:go` only exists in Claude Code plugin mode.
+> **What "no-plugin" writes.** Artifacts go into the project's platform dir (`.claude/`, `.cursor/`, `.opencode/`, `.codex/`, or `.gemini/`); nothing global except `~/.gse-one` (one line with the plugin path, removed by `python3 gensem/install.py --uninstall`). For a fully committable project with **nothing** under `$HOME`, use `--mode local` instead. Commands use the `gse-` dash prefix in no-plugin mode; the colon form `/gse:go` only exists in Claude Code plugin mode. **Codex only:** after installing, launch `codex`, open `/hooks`, and approve the GSE-One hooks — unapproved hooks do not run, so the deterministic guardrails stay inert until then.
 
 > **`git init`.** The `git init` above creates a fresh repository for YOUR project, independent of the `.git/` inside the `gensem/` clone (which tracks the plugin source). First-time git users: GSE-One configures your git identity automatically on the first commit — no prior `git config` needed.
 
@@ -259,6 +259,9 @@ python3 install.py --platform claude --mode plugin --scope user
 python3 install.py --platform opencode --mode plugin
 
 # Codex CLI (global — ~/.codex/ + ~/.agents/skills/)
+# After installing: launch codex, open /hooks, and approve the GSE-One hooks —
+# unapproved hooks do NOT run (the deterministic guardrails stay inert).
+# Headless-only escape hatch: --dangerously-bypass-hook-trust (not recommended).
 python3 install.py --platform codex --mode plugin
 
 # Gemini CLI (global extension — ~/.gemini/extensions/gse-one/)

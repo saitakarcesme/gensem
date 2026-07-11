@@ -412,7 +412,7 @@ def generate(clean: bool = False) -> None:
 
 
 def _guardrail_commands() -> dict:
-    """Return the four cross-platform guardrail hook commands as a dict.
+    """Return the cross-platform guardrail hook commands as a dict.
 
     Authored once and shared by every platform hook generator (Claude, Cursor,
     Codex, Gemini) so the guardrail logic never drifts between platforms — a
@@ -420,6 +420,16 @@ def _guardrail_commands() -> dict:
     strings. Transport: each runtime delivers the tool input as JSON on stdin
     ({"tool_input": {"command": ...}}); config toggles are read from
     .gse/config.yaml (regex, stdlib only — no PyYAML in a one-liner).
+
+    Deliberate per-platform variant (Meta-1 — parity is by intent, not byte):
+    `post_review_claude` carries the same detection logic as `post_review`
+    but emits the Claude-documented JSON channel
+    ({"hookSpecificOutput": {..., "additionalContext": ...}}) — plain stdout
+    from a PostToolUse hook goes to Claude's debug log, NOT the conversation,
+    so the plain-text variant would be invisible to agent and user (same
+    failure class as the v0.62 hooks no-op). Other platforms keep the plain
+    print: Gemini converts it to a systemMessage, opencode/codex surface
+    tool output directly.
     """
     _read_cmd = (
         "raw=sys.stdin.read(); "
@@ -475,6 +485,24 @@ def _guardrail_commands() -> dict:
         "(o>0) and print('WARNING: '+str(o)+' open review findings')"
         "\""
     )
+    # Claude variant of post_review — identical detection, JSON output channel
+    # (see docstring). Built from the same _read_cmd so the logic cannot drift.
+    post_bash_review_claude = (
+        "python3 -c \""
+        "import sys,json,os,re; "
+        + _read_cmd +
+        "p=os.path.join('.gse','config.yaml'); "
+        "cfg=open(p).read() if os.path.isfile(p) else ''; "
+        "off=bool(re.search(r'^\\s*review_findings_on_push:\\s*false',cfg,re.M)); "
+        "f=os.path.join('.gse','status.yaml'); "
+        "c=open(f).read() if (not off) and re.search(r'\\bgit\\s[^|;&]*\\bpush\\b',t) "
+        "and os.path.isfile(f) else ''; "
+        "m=re.search(r'review_findings_open:\\s*(\\d+)',c); "
+        "o=int(m.group(1)) if m else 0; "
+        "(o>0) and print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse',"
+        "'additionalContext':'WARNING: '+str(o)+' open review findings'}}))"
+        "\""
+    )
 
     # Dashboard sync hook (ENH-02 / spec §7 automatic regeneration policy).
     # Fires on every Edit/Write/MultiEdit. Invokes dashboard.py --if-stale which
@@ -502,6 +530,7 @@ def _guardrail_commands() -> dict:
         "pre_commit": pre_bash_commit,
         "pre_force": pre_bash_force,
         "post_review": post_bash_review,
+        "post_review_claude": post_bash_review_claude,
         "post_dashboard": post_edit_dashboard,
     }
 
@@ -512,12 +541,15 @@ def generate_hooks() -> None:
     pre_bash_commit = cmds["pre_commit"]
     pre_bash_force = cmds["pre_force"]
     post_bash_review = cmds["post_review"]
+    post_bash_review_claude = cmds["post_review_claude"]
     post_edit_dashboard = cmds["post_dashboard"]
 
     # Claude Code format (PascalCase events, explicit type).
-    # Three separate matcher entries for Edit/Write/MultiEdit — maximum portability
-    # across coding agents (no regex matcher dependency). Needed for opencode +
-    # local-model setups where JSON matcher parsing may be strict.
+    # Matchers Edit + Write only: MultiEdit was retired in the Claude Code 2.0
+    # tool overhaul (grouped edits arrive as individual Edit calls), so a
+    # MultiEdit matcher entry is dead configuration. PostToolUse Bash uses the
+    # Claude JSON variant of the review warning (additionalContext channel) —
+    # plain stdout would land in the debug log, invisible to the conversation.
     claude_hooks = {
         "hooks": {
             "PreToolUse": [
@@ -528,15 +560,12 @@ def generate_hooks() -> None:
             ],
             "PostToolUse": [
                 {"matcher": "Bash", "hooks": [
-                    {"type": "command", "command": post_bash_review},
+                    {"type": "command", "command": post_bash_review_claude},
                 ]},
                 {"matcher": "Edit", "hooks": [
                     {"type": "command", "command": post_edit_dashboard},
                 ]},
                 {"matcher": "Write", "hooks": [
-                    {"type": "command", "command": post_edit_dashboard},
-                ]},
-                {"matcher": "MultiEdit", "hooks": [
                     {"type": "command", "command": post_edit_dashboard},
                 ]},
             ],
@@ -546,27 +575,31 @@ def generate_hooks() -> None:
                json.dumps(claude_hooks, indent=2) + "\n")
 
     # Cursor format (camelCase events, implicit type, version field).
-    # Same three-matcher pattern as Claude for cross-platform portability.
+    # Deliberate divergences from the Claude block (Meta-2):
+    # - Cursor's shell tool matcher is "Shell", not "Bash" — a "Bash" matcher
+    #   never fires, leaving every shell guardrail silently inert.
+    # - Cursor has no Edit/MultiEdit tool matchers; file edits are surfaced by
+    #   the native afterFileEdit event (the dashboard command reads no stdin,
+    #   so it is payload-shape independent). Write is kept for file creations.
     cursor_hooks = {
         "version": 1,
         "hooks": {
             "preToolUse": [
-                {"matcher": "Bash", "hooks": [
+                {"matcher": "Shell", "hooks": [
                     {"command": pre_bash_commit},
                     {"command": pre_bash_force},
                 ]},
             ],
             "postToolUse": [
-                {"matcher": "Bash", "hooks": [
+                {"matcher": "Shell", "hooks": [
                     {"command": post_bash_review},
-                ]},
-                {"matcher": "Edit", "hooks": [
-                    {"command": post_edit_dashboard},
                 ]},
                 {"matcher": "Write", "hooks": [
                     {"command": post_edit_dashboard},
                 ]},
-                {"matcher": "MultiEdit", "hooks": [
+            ],
+            "afterFileEdit": [
+                {"hooks": [
                     {"command": post_edit_dashboard},
                 ]},
             ],
@@ -1428,6 +1461,19 @@ def verify() -> None:
         ok = path.exists()
         print(f"    {name}: {'OK' if ok else 'MISSING'}")
         if not ok: errors.append(f"Claude: missing {name}")
+    # Claude hooks: JSON review-warning variant + no retired MultiEdit matcher
+    cl_hooks_f = PLUGIN / "hooks" / "hooks.claude.json"
+    if cl_hooks_f.exists():
+        cl_txt = cl_hooks_f.read_text(encoding="utf-8")
+        shared_cl = _guardrail_commands()
+        if json.dumps(shared_cl["post_review_claude"])[1:-1] not in cl_txt:
+            errors.append("Claude: hooks.claude.json must use the JSON "
+                          "additionalContext review-warning variant")
+        if '"MultiEdit"' in cl_txt:
+            errors.append("Claude: hooks.claude.json carries the retired "
+                          "MultiEdit matcher (dead since Claude Code 2.0)")
+        else:
+            print("    hooks matchers: OK (no MultiEdit; JSON review variant)")
 
     # Cursor-specific
     commands = sum(1 for n in ACTIVITY_NAMES if (PLUGIN / "commands" / f"gse-{n}.md").exists())
@@ -1442,6 +1488,22 @@ def verify() -> None:
         ok = path.exists()
         print(f"    {name}: {'OK' if ok else 'MISSING'}")
         if not ok: errors.append(f"Cursor: missing {name}")
+    # Cursor hooks: matcher vocabulary is Shell (not Bash — never fires) and
+    # file edits ride the native afterFileEdit event (no Edit/MultiEdit tools).
+    cu_hooks_f = PLUGIN / "hooks" / "hooks.cursor.json"
+    if cu_hooks_f.exists():
+        cu_obj = json.loads(cu_hooks_f.read_text(encoding="utf-8"))
+        cu_events = cu_obj.get("hooks", {})
+        cu_matchers = [e.get("matcher") for evs in cu_events.values() for e in evs]
+        if "Bash" in cu_matchers or "Edit" in cu_matchers or "MultiEdit" in cu_matchers:
+            errors.append("Cursor: hooks.cursor.json uses non-Cursor matchers "
+                          "(Bash/Edit/MultiEdit never fire — shell tool is 'Shell')")
+        if "Shell" not in cu_matchers:
+            errors.append("Cursor: hooks.cursor.json missing the 'Shell' matcher")
+        if "afterFileEdit" not in cu_events:
+            errors.append("Cursor: hooks.cursor.json missing the afterFileEdit event")
+        if not [e for e in errors if e.startswith("Cursor: hooks")]:
+            print("    hooks matchers: OK (Shell + afterFileEdit)")
 
     # opencode-specific
     oc = PLUGIN / "opencode"
