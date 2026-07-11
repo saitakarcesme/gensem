@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.86.0] - 2026-07-11
+
+*Compatibility train across the five coding-agent platforms (July 2026 versions); consolidated from `_LOCAL/maintenance/2026-07-11-coding-agents-compatibility.md`, commits f2f1658..88ab871.*
+
+### Fixed
+- Fixed opencode fatal startup after install (`Unrecognized key: gse`); reinstall repairs broken installs.
+- Fixed Claude plugin-mode install: skills-directory route (selective copy, `gse@skills-dir`) replaces the removed `claude plugin install <path>` flow.
+- Fixed Claude plugin manifest: `agents` as file array (directory-string form now fatally rejected — the plugin failed to load).
+- Fixed guardrails inert on Cursor (`Shell` matcher + `afterFileEdit`), Gemini no-plugin/local (hooks merged into `settings.json`), Codex (flat `.codex/hooks.json` + `/hooks` trust notice).
+- Fixed review warning invisible to the agent on Claude (JSON `additionalContext`) and opencode (injected into tool output).
+- Fixed opencode dashboard hook ignoring the project-local registry (fully-local installs were inert).
+- Fixed sandbox launcher: codex `--auto` off the removed `--full-auto`; gemini `--bypass`/`--approval-mode` conflict guard; `OPENCODE_CONFIG*` escape vectors unset.
+
+### Added
+- Added `gse.json` next to `VERSION` in every registry target — uniform Axe 2 upstream-repo resolution on all five platforms.
+- Added verify() checks: `gse.json`, Claude agents manifest array, per-platform hook matcher vocabularies (intent parity).
+- Added README "Choosing your installation" (need-driven install guide, full commands per agent) and "Advanced configurations" sections.
+
+### Changed
+- Changed install.sh platform detection: single agent auto-picked; several agents require `GSE_PLATFORM` (fail-fast with guidance).
+
+### Removed
+- Removed dead `MultiEdit` matchers (Claude/Cursor/opencode), the dead opencode `tools:` list translation, and Cursor `displayName`.
+
 ## [0.85.2] - 2026-07-10
 
 *Methodology purity pass: corpus examples decoupled from the live training case study; core/DEPLOY boundary declared.*
