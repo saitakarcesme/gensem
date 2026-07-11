@@ -2086,7 +2086,9 @@ def install_sandbox(platform_name, project_dir):
     # HOME=<sandbox>, so its plugin-mode install lands entirely inside it.
     env = os.environ.copy()
     env["HOME"] = str(sandbox)
-    env.pop("XDG_CONFIG_HOME", None)   # otherwise opencode escapes the sandbox
+    env.pop("XDG_CONFIG_HOME", None)     # otherwise opencode escapes the sandbox
+    env.pop("OPENCODE_CONFIG_DIR", None) # opencode-specific config overrides —
+    env.pop("OPENCODE_CONFIG", None)     # same escape vector as XDG
     env["GSE_CHILD"] = "1"             # silence the child's banner/summary
     info(f"Installing into project sandbox HOME: {sandbox}")
     result = subprocess.run(

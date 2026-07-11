@@ -1244,9 +1244,15 @@ done
 if [ -n "$want" ]; then
   case "$platform:$want" in
     codex:bypass)  set -- --dangerously-bypass-approvals-and-sandbox "$@"; echo "GSE-One: --bypass -> codex --dangerously-bypass-approvals-and-sandbox (no approvals, no OS sandbox)" >&2 ;;
-    codex:auto)    set -- --full-auto "$@"; echo "GSE-One: --auto -> codex --full-auto (autonomous; OS sandbox kept)" >&2 ;;
-    gemini:bypass) set -- --yolo "$@"; echo "GSE-One: --bypass -> gemini --yolo (auto-approve all)" >&2 ;;
-    gemini:auto)   set -- --approval-mode=auto_edit "$@"; echo "GSE-One: --auto -> gemini --approval-mode=auto_edit (auto-approve edits only)" >&2 ;;
+    codex:auto)    set -- --sandbox workspace-write --ask-for-approval on-request "$@"; echo "GSE-One: --auto -> codex --sandbox workspace-write --ask-for-approval on-request (autonomous; OS sandbox kept; --full-auto is deprecated)" >&2 ;;
+    gemini:bypass) case " $* " in
+                     *" --approval-mode"*|*" --yolo"*) echo "GSE-One: --bypass not injected (you already passed an approval flag; gemini rejects --yolo + --approval-mode together)" >&2 ;;
+                     *) set -- --yolo "$@"; echo "GSE-One: --bypass -> gemini --yolo (auto-approve all)" >&2 ;;
+                   esac ;;
+    gemini:auto)   case " $* " in
+                     *" --approval-mode"*|*" --yolo"*) echo "GSE-One: --auto not injected (you already passed an approval flag)" >&2 ;;
+                     *) set -- --approval-mode=auto_edit "$@"; echo "GSE-One: --auto -> gemini --approval-mode=auto_edit (auto-approve edits only)" >&2 ;;
+                   esac ;;
     claude:bypass) set -- --dangerously-skip-permissions "$@"; echo "GSE-One: --bypass -> claude --dangerously-skip-permissions" >&2 ;;
     claude:auto)   set -- --permission-mode acceptEdits "$@"; echo "GSE-One: --auto -> claude --permission-mode acceptEdits" >&2 ;;
     opencode:*)    echo "GSE-One: opencode permissions are config-driven (.opencode/opencode.json 'permission'); --$want injected no flag." >&2 ;;
@@ -1274,7 +1280,12 @@ if [ "${mode:-}" = "sandbox" ]; then
     if [ -n "${GIT_AUTHOR_NAME:-}" ]; then echo "GSE-One: inherited git identity '$GIT_AUTHOR_NAME <${GIT_AUTHOR_EMAIL:-}>' into the sandbox" >&2; fi
   fi
   HOME="$script_dir"; export HOME
-  unset XDG_CONFIG_HOME 2>/dev/null || true
+  # XDG + the opencode-specific config overrides would silently escape the
+  # sandbox (they redirect config resolution outside the fake HOME).
+  unset XDG_CONFIG_HOME OPENCODE_CONFIG_DIR OPENCODE_CONFIG 2>/dev/null || true
+  if [ "$platform" = "gemini" ]; then
+    echo "GSE-One: first Gemini launch — accept the folder-trust prompt, or the GSE hooks and --bypass/--auto stay inert (headless: GEMINI_CLI_TRUST_WORKSPACE=true)" >&2
+  fi
   echo "GSE-One: launching '$bin' in project sandbox (HOME=$HOME)" >&2
 else
   echo "GSE-One: launching '$bin' (mode: ${mode:-local})" >&2
@@ -1729,7 +1740,8 @@ def verify() -> None:
         lt = launcher.read_text(encoding="utf-8")
         missing = [m for m in ("launch.env", "GSE-One: launching", "exec \"$bin\"",
                                "HOME=\"$script_dir\"", "cd \"$root\"", "XDG_CONFIG_HOME",
-                               "--bypass", "--full-auto", "GIT_AUTHOR_NAME") if m not in lt]
+                               "--bypass", "workspace-write", "OPENCODE_CONFIG_DIR",
+                               "GIT_AUTHOR_NAME") if m not in lt]
         if missing:
             errors.append(f"gse-run launcher missing: {', '.join(missing)}")
             print(f"    MISSING markers: {', '.join(missing)}")

@@ -130,6 +130,8 @@ sh .gse-sandbox/run
 
 A single `rm -rf .gse-sandbox` removes the isolated `$HOME` and the launcher; it never collides with the GSE state dir `.gse/`.
 
+> **Gemini first launch:** Gemini's folder trust is on by default — in an untrusted folder it silently downgrades `--yolo`/`--approval-mode` to `default` and holds back project hooks. Accept the folder-trust prompt on first launch (a fresh sandbox `$HOME` has no trust state), or the GSE guardrails and the `--bypass`/`--auto` translations stay inert. Headless: set `GEMINI_CLI_TRUST_WORKSPACE=true`.
+
 ### Convenience flags: `--bypass` and `--auto`
 
 The launcher accepts two **platform-agnostic** flags that it strips from the args and translates to the running agent's native equivalent. All other args pass through verbatim.
@@ -137,7 +139,7 @@ The launcher accepts two **platform-agnostic** flags that it strips from the arg
 | Flag | Meaning | Codex | Gemini | Claude |
 |---|---|---|---|---|
 | `--bypass` | Fully unprotected (no approvals, no OS sandbox) | `--dangerously-bypass-approvals-and-sandbox` | `--yolo` | `--dangerously-skip-permissions` |
-| `--auto` | Autonomous, but keep the OS sandbox / lighter scope | `--full-auto` | `--approval-mode=auto_edit` | `--permission-mode acceptEdits` |
+| `--auto` | Autonomous, but keep the OS sandbox / lighter scope | `--sandbox workspace-write --ask-for-approval on-request` | `--approval-mode=auto_edit` | `--permission-mode acceptEdits` |
 
 ```bash
 sh .gse-sandbox/run --auto        # autonomous, OS sandbox kept
