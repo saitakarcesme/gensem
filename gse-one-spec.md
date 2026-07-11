@@ -2714,9 +2714,8 @@ github:
   upstream_repo: ""                    # optional override for COMPOUND Axe 2 methodology feedback
                                        # Target repo resolution order (per design §5.16 — State Schemas, "Upstream repository resolution (Axe 2)"):
                                        #   (1) this field if non-empty (user override — private forks, corporate trackers)
-                                       #   (2) plugin manifest default:
-                                       #       - Claude/Cursor: plugin.json → repository
-                                       #       - opencode:      opencode.json → gse.repository
+                                       #   (2) installed metadata default: gse.json → repository
+                                       #       (next to VERSION in the registry target, all platforms)
                                        #   (3) none of the above → skip Axe 2 with an Inform note
   sync_mode: manual                    # manual | on-activity | real-time
   auto_close_on_deliver: true          # close linked issues when TASK is delivered

@@ -567,4 +567,4 @@ Rationale: invariant 2 is the operational fix for the silent coach drift observe
 
 ## Methodology Feedback
 
-For COMPOUND Axe 2, resolve the upstream repository URL in order: (1) `config.yaml → github.upstream_repo` if set, (2) plugin manifest — `plugin.json → repository` on Claude/Cursor, `opencode.json → gse.repository` on opencode, (3) skip Axe 2 with an Inform note. The Gate before `gh issue create` must state that submission is public (privacy acknowledgment).
+For COMPOUND Axe 2, resolve the upstream repository URL in order: (1) `config.yaml → github.upstream_repo` if set, (2) the installed metadata file `$([ -s .gse/registry ] && cat .gse/registry || cat ~/.gse-one)/gse.json → repository` (next to `VERSION`, uniform across platforms), (3) skip Axe 2 with an Inform note. The Gate before `gh issue create` must state that submission is public (privacy acknowledgment).

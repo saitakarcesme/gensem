@@ -76,6 +76,7 @@ gse-one/
 │   │   └── hooks.cursor.json            # Cursor format
 │   ├── settings.json                    # Claude-only (ignored by Cursor/opencode)
 │   ├── VERSION                          # One-line version file, distributed to every install target
+│   ├── gse.json                         # Axe 2 upstream-repository metadata, installed next to VERSION
 │   ├── tools/                           # Hand-maintained Python tools (dashboard, deploy, coolify_client, project-audit, counters)
 │   ├── references/                      # Runtime reference docs (copied from src/references/)
 │   ├── gse-run                          # Generic sandbox launcher (copied to .gse-sandbox/run by install.py)
@@ -85,7 +86,7 @@ gse-one/
 │   │   ├── agents/                      # 10 specialized (`mode: subagent`)
 │   │   ├── plugins/gse-guardrails.ts    # Native TS plugin (transpiled from the shared hook commands)
 │   │   ├── AGENTS.md                    # Orchestrator body wrapped in markers
-│   │   └── opencode.json                # Default permissions + version marker
+│   │   └── opencode.json                # Default permissions (schema-valid keys only)
 │   ├── codex/                           # Codex CLI subtree (secondary target)
 │   │   ├── AGENTS.md                    # Condensed lite orchestrator (from gse-orchestrator-lite.md, NOT byte-parity)
 │   │   ├── skills/                      # 24 activity skills + gse-orchestrator full-body skill
@@ -109,7 +110,7 @@ gse-one/
 
 ### 3.2 Plugin Manifests
 
-Both platforms use separate manifests with slightly different fields. The `repository` field is the **canonical default** for methodology feedback (COMPOUND Axe 2) — the agent reads this URL to create issues on the GSE-One repo. On opencode the equivalent lives at `opencode.json → gse.repository` (same constant, different manifest schema). The canonical default can be **overridden** by the user via `config.yaml → github.upstream_repo` (e.g., for private forks or corporate issue trackers). Full resolution order: `config.yaml → github.upstream_repo` → plugin manifest `repository` → skip Axe 2.
+Both platforms use separate manifests with slightly different fields. The manifests' `repository` field is marketplace metadata; the **canonical default** for methodology feedback (COMPOUND Axe 2) is `gse.json → repository`, a metadata file generated at `plugin/` root and installed next to `VERSION` in every registry target — uniform across all five platforms (it replaced the per-platform manifest reads; the former `opencode.json` root `gse` key is fatally rejected by opencode ≥ 1.17). The canonical default can be **overridden** by the user via `config.yaml → github.upstream_repo` (e.g., for private forks or corporate issue trackers). Full resolution order: `config.yaml → github.upstream_repo` → installed `gse.json → repository` → skip Axe 2.
 
 **Claude Code manifest** (`.claude-plugin/plugin.json`) — example; `"version"` is generated from the `VERSION` file by `gse_generate.py` at build time, so the `"X.Y.Z"` placeholder below is illustrative:
 
@@ -152,7 +153,7 @@ Key differences:
 - Cursor has `displayName` and `rules` fields; Claude does not
 - Claude loads methodology via `settings.json` → agent reference; Cursor loads via `rules/`
 
-**opencode manifest** (`opencode.json`) — opencode differs from Claude/Cursor: it does not declare `skills`/`agents`/`hooks` at top level (those are discovered from well-known directories), and its `repository` equivalent lives under the non-standard `gse.repository` key (opencode's schema has no top-level `repository` field). Instead, `opencode.json` declares a `permission` block with methodology defaults: `skill: { "*": "allow" }` (all GSE-One skills enabled), `question: "allow"` (native interactive-question tool — supports P4 interactive mode QCM across runtimes, cf. spec §14.3 — Activity Execution Fidelity Invariant), and a short `bash` denylist (`git push --force`, `rm -rf /`). Removing any of these from the default silently degrades functionality — notably, removing `question` forces QCM interactions into per-call permission prompts or text fallback.
+**opencode manifest** (`opencode.json`) — opencode differs from Claude/Cursor: it does not declare `skills`/`agents`/`hooks` at top level (those are discovered from well-known directories), and it must contain schema-valid keys only — opencode ≥ 1.17 fatally rejects unknown root keys (`Unrecognized key`), which is why the Axe 2 repository metadata lives in the registry-target `gse.json`, not here. Instead, `opencode.json` declares a `permission` block with methodology defaults: `skill: { "*": "allow" }` (all GSE-One skills enabled), `question: "allow"` (native interactive-question tool — supports P4 interactive mode QCM across runtimes, cf. spec §14.3 — Activity Execution Fidelity Invariant), and a short `bash` denylist (`git push --force`, `rm -rf /`). Removing any of these from the default silently degrades functionality — notably, removing `question` forces QCM interactions into per-call permission prompts or text fallback.
 
 ### 3.3 Mono-Plugin Architecture
 
@@ -2075,7 +2076,7 @@ for each proposed_theme:
 
 Compound prepares the tickets as a draft set (stored transiently in `.gse/compound-tickets-draft.yaml` for handoff). `/gse:integrate` Axe 2 reads this file and executes the user-approved `gh issue create` calls. No change to integrate's skeleton — just the input quality is now higher.
 
-**Upstream repository resolution (Axe 2):** the target repository for `gh issue create` is resolved in order: (1) `config.yaml → github.upstream_repo` if non-empty (user override — private forks, corporate trackers), (2) plugin manifest — `plugin.json → repository` on Claude/Cursor, `opencode.json → gse.repository` on opencode (canonical default shipped with the plugin); Codex CLI and Gemini CLI installs ship no manifest repository source, so on those platforms step 2 yields nothing and resolution falls to step 3 unless `github.upstream_repo` is set, (3) if neither resolves, `/gse:compound` Axe 2 hides the ticket-proposal options and only offers the local export. The final Gate before `gh issue create` must state explicitly that GitHub issues are public (privacy acknowledgment — cf. P4 consequence visibility).
+**Upstream repository resolution (Axe 2):** the target repository for `gh issue create` is resolved in order: (1) `config.yaml → github.upstream_repo` if non-empty (user override — private forks, corporate trackers), (2) the installed metadata file `gse.json → repository` (canonical default shipped next to `VERSION` in every registry target — uniform across all five platforms), (3) if neither resolves, `/gse:compound` Axe 2 hides the ticket-proposal options and only offers the local export. The final Gate before `gh issue create` must state explicitly that GitHub issues are public (privacy acknowledgment — cf. P4 consequence visibility).
 
 **Configuration:**
 

@@ -87,9 +87,9 @@ PLUGIN_DESCRIPTION = (
 )
 
 # Canonical upstream repository URL — single source of truth.
-# Propagated to all platform manifests (Claude plugin.json, Cursor plugin.json,
-# opencode.json under the `gse` key) so that /gse:integrate Axe 2 can resolve
-# the methodology feedback target uniformly across platforms.
+# Propagated to the platform manifests (marketplace metadata) and to
+# plugin/gse.json, which the installer drops next to VERSION in every registry
+# target — the uniform /gse:integrate Axe 2 resolution source on all platforms.
 UPSTREAM_REPO = "https://github.com/nicolasguelfi/gensem"
 
 
@@ -326,6 +326,13 @@ def generate(clean: bool = False) -> None:
     # install mode.
     print("VERSION file:")
     write_file(PLUGIN / "VERSION", f"{VERSION}\n")
+    # 4.7. Unified gse.json metadata file at plugin/ root — installed next to
+    # VERSION in every registry target. Uniform Axe 2 upstream-repository
+    # source across all five platforms (replaces the per-platform manifest
+    # reads; the former opencode.json root `gse` key is fatally rejected by
+    # opencode >= 1.17: "Unrecognized key: gse", reproduced 2026-07-11).
+    write_file(PLUGIN / "gse.json",
+               json.dumps({"repository": UPSTREAM_REPO}, indent=2) + "\n")
     print()
 
     # 5. Manifests
@@ -806,11 +813,14 @@ def _oc_build_agents_md(oc: Path) -> None:
 
 
 def _oc_build_config_json(oc: Path) -> None:
-    """Write a minimal opencode.json with safe defaults and GSE-One metadata.
+    """Write a minimal opencode.json with safe defaults.
 
-    Kept small to make installer deep-merge predictable. Unknown top-level
-    `gse` key is used for version metadata — opencode's schema validator
-    warns on unknowns but does not reject them.
+    Kept small to make installer deep-merge predictable. Root-level unknown
+    keys are FATALLY rejected by opencode >= 1.17 ("Unrecognized key",
+    `topLevelExtraKeys` guard; reproduced empirically on 1.17.18, 2026-07-11)
+    — so this file must contain schema-valid keys only. GSE metadata
+    (upstream repository for Axe 2) lives in the registry-target `gse.json`
+    instead, generated at plugin/ root and installed next to VERSION.
     """
     config = {
         "$schema": "https://opencode.ai/config.json",
@@ -821,10 +831,6 @@ def _oc_build_config_json(oc: Path) -> None:
                 "git push --force *": "deny",
                 "rm -rf /*": "deny"
             }
-        },
-        "gse": {
-            "version": VERSION,
-            "repository": UPSTREAM_REPO
         }
     }
     write_file(oc / "opencode.json", json.dumps(config, indent=2) + "\n")
@@ -1343,6 +1349,23 @@ def verify() -> None:
     else:
         print(f"  VERSION:     MISSING")
         errors.append("Missing plugin/VERSION file")
+
+    # Unified gse.json metadata — Axe 2 upstream-repository source, installed
+    # next to VERSION in every registry target.
+    gse_json_file = PLUGIN / "gse.json"
+    if gse_json_file.exists():
+        try:
+            gse_meta = json.loads(gse_json_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            gse_meta = None
+        if gse_meta and gse_meta.get("repository") == UPSTREAM_REPO:
+            print(f"  gse.json:    OK (repository={UPSTREAM_REPO})")
+        else:
+            print(f"  gse.json:    INVALID")
+            errors.append("plugin/gse.json invalid or repository mismatch")
+    else:
+        print(f"  gse.json:    MISSING")
+        errors.append("Missing plugin/gse.json file")
 
     # Hand-maintained tools (not regenerated) — presence is critical because
     # hooks and skills invoke them at runtime.

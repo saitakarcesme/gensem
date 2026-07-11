@@ -9,9 +9,5 @@
       "git push --force *": "deny",
       "rm -rf /*": "deny"
     }
-  },
-  "gse": {
-    "version": "0.85.2",
-    "repository": "https://github.com/nicolasguelfi/gensem"
   }
 }

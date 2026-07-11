@@ -342,14 +342,15 @@ def _remove_registry():
 
 
 def _copy_common_assets(target):
-    """Copy tools/, templates/, references/, and VERSION into target.
+    """Copy tools/, templates/, references/, VERSION, and gse.json into target.
 
     These are the runtime-resolvable assets that skills reach via
     `$(cat ~/.gse-one)/<subdir>/...`. Having them co-located with the registry
     target makes every install mode self-contained — the gensem source repo
-    can be deleted after install and nothing breaks.
+    can be deleted after install and nothing breaks. gse.json carries the
+    Axe 2 upstream-repository metadata, uniform across all platforms.
 
-    Idempotent: each subdir is removed-then-copied; VERSION is overwritten.
+    Idempotent: each subdir is removed-then-copied; files are overwritten.
     """
     target = Path(target)
     ensure_dir(target)
@@ -357,16 +358,17 @@ def _copy_common_assets(target):
         src = PLUGIN_DIR / subdir
         if src.is_dir():
             copy_tree(src, target / subdir)
-    version_src = PLUGIN_DIR / "VERSION"
-    if version_src.exists():
-        shutil.copy2(version_src, target / "VERSION")
+    for meta_file in ("VERSION", "gse.json"):
+        meta_src = PLUGIN_DIR / meta_file
+        if meta_src.exists():
+            shutil.copy2(meta_src, target / meta_file)
 
 
 def _remove_common_assets(target):
     """Symmetric uninstaller for _copy_common_assets.
 
-    Removes any of tools/, templates/, references/, VERSION that exist under
-    target. Safe to call when target itself does not exist.
+    Removes any of tools/, templates/, references/, VERSION, gse.json that
+    exist under target. Safe to call when target itself does not exist.
     """
     target = Path(target)
     if not target.exists():
@@ -375,9 +377,10 @@ def _remove_common_assets(target):
         d = target / subdir
         if d.is_dir():
             shutil.rmtree(d)
-    vf = target / "VERSION"
-    if vf.exists():
-        vf.unlink()
+    for meta_file in ("VERSION", "gse.json"):
+        mf = target / meta_file
+        if mf.exists():
+            mf.unlink()
 
 
 def _rewrite_skill_frontmatter_name(skill_md_path, new_name):
@@ -1365,6 +1368,11 @@ def _merge_opencode_json(target_file, source_file):
     """Deep-merge GSE-One defaults into an existing opencode.json.
 
     Never overwrites user-set keys. Adds missing keys only.
+
+    Also removes any root-level `gse` key: opencode >= 1.17 fatally rejects
+    unknown root keys ("Unrecognized key: gse"), so installs <= 0.85.x that
+    wrote the marker left opencode unable to start — reinstalling repairs
+    them. GSE metadata now lives in the registry-target `gse.json`.
     """
     if not source_file.exists():
         return
@@ -1380,8 +1388,8 @@ def _merge_opencode_json(target_file, source_file):
         target = {}
 
     merged = _deep_merge(target, source)
-    # Ensure the `gse` marker reflects this install's version
-    merged["gse"] = {"version": VERSION}
+    if merged.pop("gse", None) is not None:
+        ok(f"Removed legacy root 'gse' key from {target_file} (fatal on opencode >= 1.17)")
     target_file.write_text(json.dumps(merged, indent=2) + "\n", encoding="utf-8")
     ok(f"Merged GSE-One defaults into {target_file}")
 
@@ -1403,7 +1411,8 @@ def _deep_merge(base, overlay):
 
 
 def _strip_opencode_json_marker(target_file):
-    """Remove the GSE-One `gse` marker from opencode.json; drop the file if empty."""
+    """Remove the legacy GSE-One `gse` marker (written by installs <= 0.85.x)
+    from opencode.json; drop the file if empty."""
     if not target_file.exists():
         return
     try:
@@ -1421,6 +1430,8 @@ def _strip_opencode_json_marker(target_file):
         data.get("permission", {}).pop("bash", None)
     if data.get("permission", {}).get("skill") == {"*": "allow"}:
         data["permission"].pop("skill", None)
+    if data.get("permission", {}).get("question") == "allow":
+        data["permission"].pop("question", None)
     if data.get("permission") == {}:
         del data["permission"]
     # If only the schema remains → delete the file
