@@ -7,6 +7,18 @@
   },
   "repository": "https://github.com/nicolasguelfi/gensem",
   "skills": "./skills/",
-  "agents": "./agents/",
+  "agents": [
+    "./agents/gse-orchestrator.md",
+    "./agents/requirements-analyst.md",
+    "./agents/architect.md",
+    "./agents/test-strategist.md",
+    "./agents/code-reviewer.md",
+    "./agents/security-auditor.md",
+    "./agents/ux-advocate.md",
+    "./agents/guardrail-enforcer.md",
+    "./agents/devil-advocate.md",
+    "./agents/coach.md",
+    "./agents/deploy-operator.md"
+  ],
   "hooks": "./hooks/hooks.claude.json"
 }

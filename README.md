@@ -362,14 +362,18 @@ python3 install.py
 | *(no flags)* | — | — | **Interactive mode** — detects environment, guides step by step |
 | `--platform` | `claude` \| `cursor` \| `opencode` \| `codex` \| `gemini` \| `both` \| `all` | *(interactive)* | Target platform (`both` = claude+cursor, `all` = every supported platform) |
 | `--mode` | `plugin` \| `no-plugin` \| `local` \| `sandbox` | *(interactive)* | `plugin` (recommended); `no-plugin` (copies artifacts directly); `local` (no-plugin + project registry, nothing under `$HOME`); `sandbox` (isolated `$HOME` in `.gse-sandbox/` + a `.gse-sandbox/run` launcher — codex/gemini/opencode) |
-| `--scope` | `project` \| `local` \| `user` | `project` | Claude Code plugin scope only (ignored by Cursor, opencode, Codex, Gemini) |
-| `--project-dir` | path | current directory | No-plugin mode only |
+| `--scope` | `project` \| `local` \| `user` | `project` | Claude Code plugin scope only (ignored by Cursor, opencode, Codex, Gemini). `local` maps to `project` (skills-dir plugins have two scopes) |
+| `--project-dir` | path | current directory | No-plugin/local modes, and Claude plugin mode in `project` scope |
 | `--uninstall` | *(flag)* | `false` | Remove GSE-One |
 
 #### Examples
 
 ```bash
 # Claude Code — plugin, project scope
+# (copies the plugin to <project>/.claude/skills/gse/ — a "skills-directory
+#  plugin", auto-loaded as gse@skills-dir; user scope uses ~/.claude/skills/gse/.
+#  Project scope loads only in trusted workspaces: accept the trust dialog,
+#  then run /reload-plugins.)
 python3 install.py --platform claude --mode plugin --scope project
 
 # Cursor — plugin (global)
@@ -406,7 +410,7 @@ python3 install.py --uninstall --platform claude --mode plugin
 #### Marketplace (when available)
 
 Not yet operational. After approval:
-- Claude Code: `claude plugin install gse-one`
+- Claude Code: `claude plugin marketplace add nicolasguelfi/gensem` then `claude plugin install gse@gse-one` (the CLI no longer accepts local paths — marketplace ids only)
 - Cursor: search "gse-one" in `/add-plugin`
 - opencode: installed via `install.py` (opencode uses direct filesystem loading — no marketplace step required)
 

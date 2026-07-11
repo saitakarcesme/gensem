@@ -344,7 +344,11 @@ def generate(clean: bool = False) -> None:
         "author": {"name": "GSE-One Project"},
         "repository": UPSTREAM_REPO,
         "skills": "./skills/",
-        "agents": "./agents/",
+        # Claude Code >= 2.1.x rejects the directory-string form for agents
+        # ("agents: Invalid input" — the whole plugin then fails to load);
+        # the current schema requires an explicit array of agent file paths.
+        "agents": ["./agents/gse-orchestrator.md"]
+                  + [f"./agents/{a}" for a in SPECIALIZED_AGENTS],
         "hooks": "./hooks/hooks.claude.json",
     }
     write_file(PLUGIN / ".claude-plugin" / "plugin.json",
@@ -1366,6 +1370,27 @@ def verify() -> None:
     else:
         print(f"  gse.json:    MISSING")
         errors.append("Missing plugin/gse.json file")
+
+    # Claude manifest agents array — Claude Code >= 2.1.x fatally rejects the
+    # old directory-string form; the array must match plugin/agents/*.md
+    # exactly (a silent CLI schema change broke this once, 2026-07).
+    claude_manifest_file = PLUGIN / ".claude-plugin" / "plugin.json"
+    if claude_manifest_file.exists():
+        try:
+            cm = json.loads(claude_manifest_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            cm = {}
+        declared = cm.get("agents")
+        actual = sorted(f"./agents/{p.name}" for p in (PLUGIN / "agents").glob("*.md"))
+        if isinstance(declared, list) and sorted(declared) == actual:
+            print(f"  claude agents manifest: OK ({len(actual)} agent files, array form)")
+        else:
+            print(f"  claude agents manifest: MISMATCH")
+            errors.append(
+                "plugin.json 'agents' must be an array matching plugin/agents/*.md "
+                f"(declared={declared!r})")
+    else:
+        errors.append("Missing plugin/.claude-plugin/plugin.json")
 
     # Hand-maintained tools (not regenerated) — presence is critical because
     # hooks and skills invoke them at runtime.

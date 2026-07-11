@@ -425,14 +425,40 @@ def _rewrite_skill_frontmatter_name(skill_md_path, new_name):
 # Duplicate installation detection
 # ---------------------------------------------------------------------------
 
-def _detect_claude_plugin_installed():
-    """Return True if the 'gse' plugin is registered in Claude Code.
+def _detect_claude_plugin_installed(project_dir=None):
+    """Return True if a GSE plugin install exists for Claude Code.
 
-    Runs `claude plugin list` and looks for a line whose first token is 'gse'.
-    Returns False if the CLI is absent, times out, or the plugin is not listed.
+    Checks (1) skills-directory installs (gse/ with a plugin manifest under
+    <project>/.claude/skills/ or ~/.claude/skills/ — pure filesystem, no CLI
+    registration), then (2) CLI-registered plugins via
+    `claude plugin list --json` (id 'gse' or 'gse@<marketplace>'), with a
+    tolerant text fallback for older CLIs. Returns False when nothing is
+    found or the CLI is absent/failing.
     """
+    for scope in ("project", "user"):
+        target = _claude_skillsdir_root(scope, project_dir) / "gse"
+        if (target / ".claude-plugin" / "plugin.json").exists():
+            return True
     if not command_exists("claude"):
         return False
+    try:
+        result = subprocess.run(
+            ["claude", "plugin", "list", "--json"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+    if result.returncode == 0:
+        try:
+            plugins = json.loads(result.stdout)
+            for p in plugins:
+                pid = str(p.get("id", ""))
+                if pid == "gse" or pid.startswith("gse@"):
+                    return True
+            return False
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            pass
+    # Fallback for CLIs without --json: tolerant text scan.
     try:
         result = subprocess.run(
             ["claude", "plugin", "list"],
@@ -443,8 +469,9 @@ def _detect_claude_plugin_installed():
     if result.returncode != 0:
         return False
     for line in result.stdout.splitlines():
-        tokens = line.strip().split()
-        if tokens and tokens[0].lower() == "gse":
+        tokens = line.strip().lstrip("❯").split()
+        if tokens and (tokens[0].lower() == "gse"
+                       or tokens[0].lower().startswith("gse@")):
             return True
     return False
 
@@ -485,9 +512,10 @@ def _check_duplicate_install(platform_name, mode, project_dir=None, env=None):
             if _has_gse_skills_in_dir(home):
                 conflicts.append(("no-plugin (home)", str(home)))
         elif mode == "no-plugin":
-            # Check for a registered 'gse' plugin via the Claude CLI
-            if _detect_claude_plugin_installed():
-                conflicts.append(("plugin (registered via claude CLI)", "claude plugin list → gse"))
+            # Check for an existing plugin install (skills-dir or CLI-registered)
+            if _detect_claude_plugin_installed(project_dir):
+                conflicts.append(("plugin (skills-dir or CLI-registered)",
+                                  ".claude/skills/gse or claude plugin list → gse"))
 
     elif platform_name == "cursor":
         if mode == "plugin" and env:
@@ -708,89 +736,113 @@ def display_environment(env):
 # Claude Code — Plugin mode
 # ---------------------------------------------------------------------------
 
-def install_claude_plugin(scope):
-    """Install GSE-One as a Claude Code plugin using the CLI."""
-    step(f"Claude Code — Plugin install (scope: {scope})")
+def _claude_skillsdir_root(scope, project_dir=None):
+    """Skills-directory root for a scope: ~/.claude/skills (user) or
+    <project>/.claude/skills (project)."""
+    if scope == "user":
+        return Path.home() / ".claude" / "skills"
+    return Path(project_dir or Path.cwd()) / ".claude" / "skills"
 
-    if not _check_duplicate_install("claude", "plugin"):
+
+def install_claude_plugin(scope, project_dir=None):
+    """Install GSE-One as a Claude Code skills-directory plugin (file copy).
+
+    Claude Code >= 2.1.x removed local-path `claude plugin install` (the CLI
+    only accepts marketplace ids). The supported CLI-free route is a
+    "skills-directory plugin": a directory under ~/.claude/skills/ (user
+    scope) or <project>/.claude/skills/ (project scope) containing
+    .claude-plugin/plugin.json auto-loads as `gse@skills-dir` — same
+    file-copy style as every other platform.
+
+    The copy is SELECTIVE (Claude components only: manifest, skills/, agents/,
+    hooks.claude.json, settings.json). Copying all of plugin/ would let the
+    commands/skills unification absorb the Cursor commands/ files as duplicate
+    skills (48 instead of 24, doubled namespace + context cost). tools/,
+    templates/ and references/ are therefore NOT in this copy — the registry
+    keeps pointing at the ~/.gse-one.d/ side-install.
+    """
+    step(f"Claude Code — Plugin install (skills-dir, scope: {scope})")
+
+    if scope == "local":
+        warn("Skills-directory plugins have no 'local' scope — using project scope.")
+        scope = "project"
+
+    if not _check_duplicate_install("claude", "plugin", project_dir):
         tracker.add("Claude Code", "plugin", scope, "-", "FAIL", "cancelled (duplicate)")
         return False
 
-    if not command_exists("claude"):
-        err("Claude Code CLI not found on PATH.")
-        err("Install it from https://claude.ai/download and try again.")
-        tracker.add("Claude Code", "plugin", scope, "-", "FAIL", "CLI not found")
-        return False
+    root = _claude_skillsdir_root(scope, project_dir)
+    target = root / "gse"
+    if target.exists():
+        remove_path(target)
+    ensure_dir(target)
+    copy_tree(PLUGIN_DIR / ".claude-plugin", target / ".claude-plugin")
+    copy_tree(PLUGIN_DIR / "skills", target / "skills")
+    copy_tree(PLUGIN_DIR / "agents", target / "agents")
+    ensure_dir(target / "hooks")
+    shutil.copy2(PLUGIN_DIR / "hooks" / "hooks.claude.json",
+                 target / "hooks" / "hooks.claude.json")
+    settings_src = PLUGIN_DIR / "settings.json"
+    if settings_src.exists():
+        shutil.copy2(settings_src, target / "settings.json")
+    ok(f"Plugin copied to {target} (auto-loads as gse@skills-dir)")
+    if scope == "project":
+        info("Project-scope plugins load only in trusted workspaces:")
+        info("  open the project in claude, accept the trust dialog, then run /reload-plugins.")
 
-    plugin_path = str(PLUGIN_DIR)
-    cmd = ["claude", "plugin", "install", plugin_path, "--scope", scope]
-    info(f"Running: {dim(' '.join(cmd))}")
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            ok(f"Plugin installed (scope: {scope})")
-            if result.stdout.strip():
-                info(result.stdout.strip())
-            # Side-install common runtime assets at ~/.gse-one.d/ so that
-            # shell-resolved paths remain stable even after the gensem source
-            # repo is deleted and regardless of where claude stores the plugin
-            # internally.
-            _copy_common_assets(GSE_ONE_DATA_DIR)
-            ok(f"Common assets copied to {GSE_ONE_DATA_DIR}")
-            _write_registry(GSE_ONE_DATA_DIR)
-            tracker.add("Claude Code", "plugin", scope, plugin_path, "OK", f"v{VERSION}")
-            return True
-        else:
-            err(f"Installation failed (exit {result.returncode})")
-            if result.stderr.strip():
-                err(result.stderr.strip())
-            tracker.add("Claude Code", "plugin", scope, plugin_path, "FAIL", f"exit {result.returncode}")
-            return False
-    except FileNotFoundError:
-        err("Claude Code CLI not found.")
-        tracker.add("Claude Code", "plugin", scope, "-", "FAIL", "CLI not found")
-        return False
-    except subprocess.TimeoutExpired:
-        err("Installation timed out.")
-        tracker.add("Claude Code", "plugin", scope, "-", "FAIL", "timeout")
-        return False
+    # Side-install common runtime assets at ~/.gse-one.d/ so that
+    # shell-resolved paths stay stable across scopes (a project-scope install
+    # is not addressable by the global registry) and the selective plugin
+    # copy above does not need to carry tools/templates/references.
+    _copy_common_assets(GSE_ONE_DATA_DIR)
+    ok(f"Common assets copied to {GSE_ONE_DATA_DIR}")
+    _write_registry(GSE_ONE_DATA_DIR)
+    tracker.add("Claude Code", "plugin", scope, str(target), "OK", f"v{VERSION}")
+    return True
 
 
-def uninstall_claude_plugin():
-    """Uninstall GSE-One from Claude Code."""
+def uninstall_claude_plugin(project_dir=None):
+    """Uninstall the GSE-One Claude plugin.
+
+    Removes skills-directory installs (project and user scopes), then makes a
+    best-effort `claude plugin uninstall` pass over the CLI scopes to clean up
+    legacy installs registered via the pre-2.1 local-path CLI flow.
+    """
     step("Claude Code — Plugin uninstall")
 
-    if not command_exists("claude"):
-        err("Claude Code CLI not found on PATH.")
-        tracker.add("Claude Code", "plugin", "-", "-", "FAIL", "CLI not found")
-        return False
+    removed_any = False
+    for scope in ("project", "user"):
+        target = _claude_skillsdir_root(scope, project_dir) / "gse"
+        if (target / ".claude-plugin" / "plugin.json").exists():
+            remove_path(target)
+            ok(f"Removed skills-dir plugin ({scope}): {target}")
+            removed_any = True
 
-    cmd = ["claude", "plugin", "uninstall", "gse"]
-    info(f"Running: {dim(' '.join(cmd))}")
+    # Legacy cleanup — installs registered through the old CLI flow.
+    if command_exists("claude"):
+        for scope in ("project", "user", "local"):
+            try:
+                result = subprocess.run(
+                    ["claude", "plugin", "uninstall", "gse", "--scope", scope],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode == 0:
+                    ok(f"Legacy CLI-registered plugin uninstalled (scope: {scope})")
+                    removed_any = True
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
 
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            ok("Plugin uninstalled from Claude Code")
-            # Symmetric removal of the side-install dropped at install time
-            _remove_common_assets(GSE_ONE_DATA_DIR)
-            if GSE_ONE_DATA_DIR.exists() and not any(GSE_ONE_DATA_DIR.iterdir()):
-                GSE_ONE_DATA_DIR.rmdir()
-                ok(f"Removed {GSE_ONE_DATA_DIR}")
-            _remove_registry()
-            tracker.add("Claude Code", "uninstall", "-", "-", "OK", "removed")
-            return True
-        else:
-            warn(f"Uninstall returned exit {result.returncode}")
-            if result.stderr.strip():
-                warn(result.stderr.strip())
-            tracker.add("Claude Code", "uninstall", "-", "-", "WARN", f"exit {result.returncode}")
-            return False
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        err("Could not run claude CLI.")
-        tracker.add("Claude Code", "uninstall", "-", "-", "FAIL", "CLI error")
-        return False
+    if not removed_any:
+        info("No Claude plugin install found — cleaning up shared assets anyway.")
+
+    # Symmetric removal of the side-install dropped at install time
+    _remove_common_assets(GSE_ONE_DATA_DIR)
+    if GSE_ONE_DATA_DIR.exists() and not any(GSE_ONE_DATA_DIR.iterdir()):
+        GSE_ONE_DATA_DIR.rmdir()
+        ok(f"Removed {GSE_ONE_DATA_DIR}")
+    _remove_registry()
+    tracker.add("Claude Code", "uninstall", "-", "-", "OK", "removed")
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -2077,7 +2129,10 @@ def interactive_menu(env):
                 results.append(install_claude_no_plugin(project_dir))
             else:
                 scope = mode.split("-")[1]
-                results.append(install_claude_plugin(scope))
+                # Skills-dir installs in project/local scope land in the
+                # project's .claude/skills/ — ask which project.
+                proj = _ask_project_dir() if scope in ("project", "local") else None
+                results.append(install_claude_plugin(scope, proj))
 
         elif plat == "cursor":
             mode = ask(
@@ -2174,7 +2229,7 @@ def interactive_uninstall(env):
     )
 
     if chosen == "claude-plugin":
-        return uninstall_claude_plugin()
+        return uninstall_claude_plugin(_ask_project_dir())
     elif chosen == "claude-no-plugin":
         return uninstall_claude_no_plugin(_ask_project_dir())
     elif chosen == "cursor-plugin":
@@ -2301,7 +2356,7 @@ def main():
             continue
         if args.uninstall:
             if plat == "claude":
-                results.append(uninstall_claude_plugin() if mode == "plugin"
+                results.append(uninstall_claude_plugin(project_dir) if mode == "plugin"
                                else uninstall_claude_no_plugin(project_dir))
             elif plat == "cursor":
                 results.append(uninstall_cursor_plugin(env) if mode == "plugin"
@@ -2317,7 +2372,7 @@ def main():
                                else uninstall_gemini_no_plugin(project_dir))
         else:
             if plat == "claude":
-                results.append(install_claude_plugin(args.scope) if mode == "plugin"
+                results.append(install_claude_plugin(args.scope, project_dir) if mode == "plugin"
                                else install_claude_no_plugin(project_dir))
             elif plat == "cursor":
                 results.append(install_cursor_plugin(env) if mode == "plugin"

@@ -124,10 +124,12 @@ Both platforms use separate manifests with slightly different fields. The manife
   },
   "repository": "https://github.com/gse-one/gse-one",
   "skills": "./skills/",
-  "agents": "./agents/",
+  "agents": ["./agents/gse-orchestrator.md", "./agents/requirements-analyst.md", "… the 9 other agent files …"],
   "hooks": "./hooks/hooks.claude.json"
 }
 ```
+
+Note — `agents` array form: Claude Code ≥ 2.1.x fatally rejects the old directory-string form (`"agents": "./agents/"` → `agents: Invalid input`; the whole plugin then fails to load). The generator emits the explicit file array and `--verify` asserts it matches `plugin/agents/*.md`. The Cursor manifest below keeps the directory-string form — Cursor's schema still accepts it (deliberate divergence, Meta-2).
 
 **Cursor manifest** (`.cursor-plugin/plugin.json`) — same note: `"version"` is build-generated:
 
