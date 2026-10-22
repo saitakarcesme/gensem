@@ -24,7 +24,7 @@ export const GseGuardrails: Plugin = async ({ directory }: { directory: string }
         }
       }
 
-      if (/(?:^|[;&|\n]\s*)git\s+(?:(?:-C|-c)\s+\S+\s+|--no-pager\s+)*commit\b/.test(cmd)) {
+      if (/(?:^\s*|[;&|(\n]\s*)git\s+(?:(?:-C|-c)\s+\S+\s+|--no-pager\s+)*commit\b/.test(cmd)) {
         const off = /^\s*protect_main:\s*false/m.test(cfg) || /^\s*strategy:\s*none/m.test(cfg)
         if (!off) {
           const branch = (await $`git branch --show-current`.cwd(cwd).nothrow().quiet().text()).trim()

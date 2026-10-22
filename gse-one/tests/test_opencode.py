@@ -52,7 +52,7 @@ class TestOpenCodeInstaller(unittest.TestCase):
             self.assertFalse(installer.install_opencode_no_plugin(Path(tmp) / "project"))
             self.assertEqual(track.call_count, 2)
             self.assertTrue(all(call.args[-2] == "FAIL" for call in track.call_args_list))
-            self.assertFalse(list(Path(tmp).rglob("gse-guardrails.ts")))
+            self.assertEqual(list(Path(tmp).iterdir()), [])
 
     def test_upgrade_downgrade_and_uninstall_preserve_user_plugins(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -24,7 +24,7 @@ Located in `gse-one/tests/`:
 
 - `test_opencode.py` — installer selection, failure reporting, and the Bun adapter test runner
 - `opencode.test.ts` — generated V1/V2 guardrails, working-directory policy, and structured tool results
-- `test_dashboard.py` — dashboard generation and stale-state handling
+- `test_dashboard.py` — dashboard generation and pre-sprint baseline (null/zero `current_sprint`) handling
 - `test_deploy.py` — deploy tool deterministic core (detailed below)
 - `test_audit.py` — audit engine regression guards (false-positive classes, catalog chain, checkpoint round-trip coherence)
 - `test_hooks.py` — generated guardrail hooks executed against synthetic stdin JSON

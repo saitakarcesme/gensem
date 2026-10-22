@@ -145,7 +145,9 @@ class TestProtectMainHook(unittest.TestCase):
                      "git -c user.name=x commit -m x",
                      "git -c user.name=x -c user.email=x@y commit -m x",
                      "git --no-pager commit -m x",
-                     "git status\ngit commit -m x"):
+                     "git status\ngit commit -m x",
+                     "  git commit -m x",
+                     "(git commit -m x)"):
             res = _run_hook(self.cmd, form, self.dir)
             self.assertEqual(res.returncode, 2, f"{form!r}: {res.stderr}")
             self.assertIn("GUARDRAIL", res.stderr)

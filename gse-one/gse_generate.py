@@ -442,7 +442,7 @@ def _guardrail_commands() -> dict:
         "python3 -c \""
         "import sys,json,os,re,subprocess; "
         + _read_cmd +
-        "c=bool(re.search(r'(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b',t)); "
+        "c=bool(re.search(r'(?:^\\s*|[;&|(\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b',t)); "
         "p=os.path.join('.gse','config.yaml'); "
         "cfg=open(p).read() if c and os.path.isfile(p) else ''; "
         "off=bool(re.search(r'^\\s*protect_main:\\s*false',cfg,re.M)) "
@@ -750,7 +750,7 @@ export const GseGuardrails: Plugin = async ({{ directory }}: {{ directory: strin
         }}
       }}
 
-      if (/(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b/.test(cmd)) {{
+      if (/(?:^\\s*|[;&|(\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b/.test(cmd)) {{
         const off = /^\\s*protect_main:\\s*false/m.test(cfg) || /^\\s*strategy:\\s*none/m.test(cfg)
         if (!off) {{
           const branch = (await $`git branch --show-current`.cwd(cwd).nothrow().quiet().text()).trim()

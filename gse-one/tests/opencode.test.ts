@@ -70,7 +70,7 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
       await run("git commit -m allowed")
     }
     config("")
-    for (const command of ["git -c user.name=Test commit -m blocked", "git -c user.name=Test -c user.email=t@t commit -m blocked", "git --no-pager commit -m blocked", "git status\ngit commit -m blocked"]) {
+    for (const command of ["git -c user.name=Test commit -m blocked", "git -c user.name=Test -c user.email=t@t commit -m blocked", "git --no-pager commit -m blocked", "git status\ngit commit -m blocked", "  git commit -m blocked", "(git commit -m blocked)"]) {
       await expect(run(command)).rejects.toThrow("Direct commit to main")
     }
     git("checkout", "-b", "feature")

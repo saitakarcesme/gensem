@@ -1172,7 +1172,6 @@ def install_opencode_plugin(env):
         return False
 
     target = env["opencode_dir"]
-    ensure_dir(target)
 
     counts = _opencode_copy_tree(OPENCODE_PLUGIN_DIR, target)
     if counts is None:
@@ -1240,7 +1239,6 @@ def install_opencode_no_plugin(project_dir):
 
     project_dir = Path(project_dir)
     target = project_dir / ".opencode"
-    ensure_dir(target)
 
     counts = _opencode_copy_tree(OPENCODE_PLUGIN_DIR, target)
     if counts is None:
