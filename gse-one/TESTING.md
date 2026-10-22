@@ -203,11 +203,25 @@ Run them when touching pause/resume, state schemas, or the deliver tag strategy.
    files match the reverted code state; the cleanup step (deliver Step 8 — Cleanup
    Backup Tags) only removes tags after user confirmation.
 
-## CI (future work)
+## OpenCode guardrail regression tests
 
-Not yet set up. Candidates:
+`python3 gse_generate.py --verify` includes installer selection tests and runs
+`bun test tests/opencode.test.ts` when Bun is installed. Without Bun, the runtime
+test is explicitly skipped; install Bun to validate changes to OpenCode hooks.
+PR and release workflows install Bun 1.4.3, so runtime coverage is required there.
 
-- **GitHub Actions** triggered on PR: `python3 -m unittest discover tests`
+The tests load both generated adapters and exercise hooks against temporary Git
+repositories, config/status files, and a fake dashboard script. They require Git,
+Python 3, and Bun, but no model, credentials, or network. Push commands are passed
+to hooks only; they are never executed. These are adapter contract tests, not a
+replacement for a smoke test in the real OpenCode CLI.
+
+## CI
+
+`.github/workflows/test.yml` runs generation, verification, Python tests, and Bun
+adapter tests on pull requests and pushes to main. It also checks that generated
+artifacts match the committed source. Future extensions:
+
 - **Matrix:** Python 3.9, 3.10, 3.11, 3.12, 3.13
 - **Platforms:** macOS, Linux (Windows WSL covers Linux)
 - **Optional:** a staging Coolify instance + disposable Hetzner project for

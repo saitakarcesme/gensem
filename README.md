@@ -759,6 +759,24 @@ The Python engine (`gse-one/audit.py` + `gse-one/audit_catalog.py`) also travels
 
 ---
 
+## OpenCode 1 and 2 guardrails
+
+The installer detects `opencode --version` and installs one compatible
+`plugins/gse-guardrails.ts`: the legacy function adapter for OpenCode 1, or the
+`id`/`setup` adapter for OpenCode 2. Project, machine, and sandbox installations
+use the same selection. **Re-run the installer after changing OpenCode major
+versions.** If the CLI is missing or its version cannot be recognized, installation
+warns and retains the V1 default; install OpenCode and re-run installation before
+using V2. Direct copies of the generated V1 subtree do not select V2 automatically.
+
+The V2 source artifact is generated at
+`gse-one/plugin/opencode/compat/gse-guardrails-v2.ts`; the installer copies it to
+the normal plugin filename, without loading both adapters. It uses native shell
+hooks for guards and structured tool content for review warnings, following the
+[OpenCode V2 migration guide](https://dev.opencode.ai/v2/docs/build/plugins/migrate-v1).
+No Codex installation or cloud account is needed. See
+[the regression test instructions](gse-one/TESTING.md#opencode-guardrail-regression-tests).
+
 ## Versioning
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.

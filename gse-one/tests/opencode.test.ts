@@ -1,0 +1,143 @@
+/** Behavioral tests of the generated adapters; no model, credentials, or network. */
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { execFileSync } from "node:child_process"
+import v1 from "../plugin/opencode/plugins/gse-guardrails"
+import v2 from "../plugin/opencode/compat/gse-guardrails-v2"
+
+for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
+  let root: string, project: string, before: any, after: any
+  let originalHome: string | undefined
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: project, stdio: "pipe" })
+  const config = (value: string) => writeFileSync(join(project, ".gse/config.yaml"), value)
+  const run = (command: string) => before(command)
+
+  beforeEach(async () => {
+    root = mkdtempSync(join(tmpdir(), "gse-opencode-"))
+    project = join(root, "workdir")
+    mkdirSync(join(project, ".gse"), { recursive: true })
+    originalHome = process.env.HOME
+    process.env.HOME = root // Never read the developer's machine registry.
+    git("init", "-b", "main")
+    if (version === 1) {
+      const hooks = await v1({ directory: root } as any)
+      before = (command: string) => hooks["tool.execute.before"]!(
+        { tool: "bash" } as any, { args: { command, workdir: project } },
+      )
+      after = async (event: any) => {
+        const result = { output: event.result.content ?? "" }
+        await hooks["tool.execute.after"]!(
+          { tool: event.tool === "shell" ? "bash" : event.tool, args: event.input } as any, result as any,
+        )
+        event.result.content = result.output
+      }
+    } else {
+      const registrations: Record<string, any> = {}
+      await v2.setup({
+        location: { directory: root },
+        shell: { hook: async (name: string, fn: any) => { registrations[`shell.${name}`] = fn } },
+        tool: { hook: async (name: string, fn: any) => { registrations[`tool.${name}`] = fn } },
+      })
+      expect(Object.keys(registrations).sort()).toEqual(["shell.create.before", "tool.execute.after"])
+      before = (command: string) => registrations["shell.create.before"]({ command, cwd: project })
+      after = registrations["tool.execute.after"]
+    }
+  })
+  afterEach(() => {
+    if (originalHome === undefined) delete process.env.HOME
+    else process.env.HOME = originalHome
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  test("blocks force push forms and honors the project toggle", async () => {
+    for (const command of ["git push -f", "git push --force", "git push --force-with-lease", "git push origin +HEAD:main"]) {
+      await expect(run(command)).rejects.toThrow("EMERGENCY GUARDRAIL")
+    }
+    await run("git status --short")
+    await run("git push origin feature")
+    config("hooks:\n  block_force_push: false\n")
+    await run("git push --force")
+  })
+
+  test("allows initialization, protects main, and respects branch/config exceptions", async () => {
+    await run("git commit -m initial")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-m", "fixture")
+    await expect(run("git commit -m blocked")).rejects.toThrow("Direct commit to main")
+    for (const setting of ["hooks:\n  protect_main: false\n", "git:\n  strategy: none\n"]) {
+      config(setting)
+      await run("git commit -m allowed")
+    }
+    config("")
+    git("checkout", "-b", "feature")
+    await run("git commit -m allowed")
+  })
+
+  test("appends a model-visible warning using relative and absolute workdir", async () => {
+    writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
+    for (const workdir of ["workdir", project]) {
+      const event = { status: "completed", tool: "shell", input: { command: "git push origin feature", workdir }, result: { content: "original", metadata: { keep: true } } }
+      await after(event)
+      expect(event.result.content).toBe("original\nWARNING: 3 open review findings")
+      expect(event.result.metadata).toEqual({ keep: true })
+      config("hooks:\n  review_findings_on_push: false\n")
+      event.result.content = "original"
+      await after(event)
+      expect(event.result.content).toBe("original")
+      config("")
+    }
+  })
+
+  test("ignores missing/zero findings and unrelated commands", async () => {
+    const event = { status: "completed", tool: "shell", input: { command: "git push", workdir: project }, result: { content: "original" } }
+    await after(event)
+    expect(event.result.content).toBe("original")
+    writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 0\n")
+    await after(event)
+    expect(event.result.content).toBe("original")
+    writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
+    event.input.command = "git status"
+    await after(event)
+    expect(event.result.content).toBe("original")
+  })
+
+  test("refreshes dashboard in plugin directory and records failure without blocking edits", async () => {
+    mkdirSync(join(root, ".gse"))
+    mkdirSync(join(root, "assets/tools"), { recursive: true })
+    writeFileSync(join(root, ".gse/registry"), join(root, "assets"))
+    const script = join(root, "assets/tools/dashboard.py")
+    writeFileSync(script, "from pathlib import Path\nPath('dashboard-ran').write_text('ok')\n")
+    for (const tool of ["edit", "write", "apply_patch"]) {
+      await after({ status: "completed", tool, input: {}, result: {} })
+      expect(readFileSync(join(root, "dashboard-ran"), "utf8")).toBe("ok")
+      rmSync(join(root, "dashboard-ran"))
+    }
+    // Machine registry fallback is kept for machine and sandbox installs.
+    rmSync(join(root, ".gse/registry"))
+    writeFileSync(join(root, ".gse-one"), join(root, "assets"))
+    await after({ status: "completed", tool: "write", input: {}, result: {} })
+    expect(existsSync(join(root, "dashboard-ran"))).toBe(true)
+    writeFileSync(script, 'raise RuntimeError("fixture failure")\n')
+    await after({ status: "completed", tool: "write", input: {}, result: {} })
+    expect(readFileSync(join(root, ".gse/.dashboard-error.yaml"), "utf8")).toContain("fixture failure")
+  })
+
+  if (version === 2) {
+    test("preserves structured content, metadata, and output", async () => {
+      writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
+      for (const content of [undefined, [{ type: "text", text: "original" }, { type: "file", uri: "file:///fixture", mime: "text/plain" }]]) {
+        const event = { status: "completed", tool: "shell", input: { command: "git push", workdir: project }, result: { content, output: { keep: true }, metadata: { keep: true } } }
+        await after(event)
+        expect(event.result.content).toEqual([...(content ?? []), { type: "text", text: "WARNING: 3 open review findings" }])
+        expect(event.result.output).toEqual({ keep: true })
+        expect(event.result.metadata).toEqual({ keep: true })
+      }
+    })
+    test("ignores failed tool executions", async () => {
+      await after({ status: "error", tool: "shell", input: { command: "git push" }, error: "fixture" })
+      await after({ status: "error", tool: "write", error: "fixture" })
+      expect(existsSync(join(root, ".gse/.dashboard-error.yaml"))).toBe(false)
+    })
+  }
+})
