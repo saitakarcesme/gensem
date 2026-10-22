@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed OpenCode 2 plugin loading, shell guardrails, model-visible review warnings, and dashboard refresh after successful edits.
 - Preserved OpenCode 1 guardrails through installer version detection and separate generated adapters.
 
-### Added
-- Added deterministic OpenCode adapter and installer regression tests, including working directories and structured tool results.
+- Fixed gaps in OpenCode regression coverage, including subdirectory policy, failed tool events, initialization, Git option variants, and installer failures.
+- Fixed CI artifact verification to detect untracked generated files.
 
 ## [0.89.0] - 2026-07-11
 

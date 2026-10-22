@@ -76,6 +76,9 @@ class TestForcePushHook(unittest.TestCase):
         for form in (
             "git push --force",
             "git push -f",
+            "git push -fu",
+            "git push -uf",
+            "git push -vf",
             "git push origin main --force",
             "git push --force-with-lease",
             "cd sub && git push -f origin main",
@@ -138,7 +141,11 @@ class TestProtectMainHook(unittest.TestCase):
     def test_blocks_commit_on_main(self):
         self._first_commit()
         for form in ("git commit -m x", "git add -A && git commit -m x",
-                     "git -C . commit -m x"):
+                     "git -C . commit -m x",
+                     "git -c user.name=x commit -m x",
+                     "git -c user.name=x -c user.email=x@y commit -m x",
+                     "git --no-pager commit -m x",
+                     "git status\ngit commit -m x"):
             res = _run_hook(self.cmd, form, self.dir)
             self.assertEqual(res.returncode, 2, f"{form!r}: {res.stderr}")
             self.assertIn("GUARDRAIL", res.stderr)

@@ -22,7 +22,7 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
     process.env.HOME = root // Never read the developer's machine registry.
     git("init", "-b", "main")
     if (version === 1) {
-      const hooks = await v1({ directory: root } as any)
+      const hooks = await v1({ directory: project } as any)
       before = (command: string) => hooks["tool.execute.before"]!(
         { tool: "bash" } as any, { args: { command, workdir: project } },
       )
@@ -36,7 +36,7 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
     } else {
       const registrations: Record<string, any> = {}
       await v2.setup({
-        location: { directory: root },
+        location: { directory: project },
         shell: { hook: async (name: string, fn: any) => { registrations[`shell.${name}`] = fn } },
         tool: { hook: async (name: string, fn: any) => { registrations[`tool.${name}`] = fn } },
       })
@@ -52,7 +52,7 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
   })
 
   test("blocks force push forms and honors the project toggle", async () => {
-    for (const command of ["git push -f", "git push --force", "git push --force-with-lease", "git push origin +HEAD:main"]) {
+    for (const command of ["git push -fu", "git push -uf", "git push -vf", "git push -f", "git push --force", "git push --force-with-lease", "git push origin +HEAD:main"]) {
       await expect(run(command)).rejects.toThrow("EMERGENCY GUARDRAIL")
     }
     await run("git status --short")
@@ -70,13 +70,16 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
       await run("git commit -m allowed")
     }
     config("")
+    for (const command of ["git -c user.name=Test commit -m blocked", "git -c user.name=Test -c user.email=t@t commit -m blocked", "git --no-pager commit -m blocked", "git status\ngit commit -m blocked"]) {
+      await expect(run(command)).rejects.toThrow("Direct commit to main")
+    }
     git("checkout", "-b", "feature")
     await run("git commit -m allowed")
   })
 
   test("appends a model-visible warning using relative and absolute workdir", async () => {
     writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
-    for (const workdir of ["workdir", project]) {
+    for (const workdir of [".", project]) {
       const event = { status: "completed", tool: "shell", input: { command: "git push origin feature", workdir }, result: { content: "original", metadata: { keep: true } } }
       await after(event)
       expect(event.result.content).toBe("original\nWARNING: 3 open review findings")
@@ -102,25 +105,52 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
     expect(event.result.content).toBe("original")
   })
 
+  test("subdirectory workdir keeps project config and status authoritative", async () => {
+    const child = join(project, "src")
+    mkdirSync(join(child, ".gse"), { recursive: true })
+    writeFileSync(join(child, ".gse/config.yaml"), "hooks:\n  block_force_push: false\n")
+    let guard: any, post: any
+    if (version === 1) {
+      const h = await v1({ directory: project } as any)
+      guard = (command: string) => h["tool.execute.before"]!({ tool: "bash" } as any, { args: { command, workdir: child } })
+      post = async () => { const o = { output: "original" }; await h["tool.execute.after"]!({ tool: "bash", args: { command: "git push", workdir: child } } as any, o as any); return o.output }
+    } else {
+      const h: any = {}
+      await v2.setup({ location: { directory: project }, shell: { hook: async (_: string, f: any) => { h.before = f } }, tool: { hook: async (_: string, f: any) => { h.after = f } } })
+      guard = (command: string) => h.before({ command, cwd: child })
+      post = async () => { const e = { status: "completed", tool: "shell", input: { command: "git push", workdir: child }, result: { content: "original" } }; await h.after(e); return e.result.content }
+    }
+    await expect(guard("git push --force")).rejects.toThrow("EMERGENCY GUARDRAIL")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-m", "fixture")
+    config("hooks:\n  protect_main: false\n")
+    await guard("git commit -m allowed")
+    writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
+    expect(await post()).toContain("WARNING: 3 open review findings")
+  })
+
+  test("allows initialization command in a directory without Git metadata", async () => {
+    rmSync(join(project, ".git"), { recursive: true })
+    await run("git init && git commit --allow-empty -m initial")
+  })
+
   test("refreshes dashboard in plugin directory and records failure without blocking edits", async () => {
-    mkdirSync(join(root, ".gse"))
-    mkdirSync(join(root, "assets/tools"), { recursive: true })
-    writeFileSync(join(root, ".gse/registry"), join(root, "assets"))
-    const script = join(root, "assets/tools/dashboard.py")
+    mkdirSync(join(project, "assets/tools"), { recursive: true })
+    writeFileSync(join(project, ".gse/registry"), join(project, "assets"))
+    const script = join(project, "assets/tools/dashboard.py")
     writeFileSync(script, "from pathlib import Path\nPath('dashboard-ran').write_text('ok')\n")
     for (const tool of ["edit", "write", "apply_patch"]) {
       await after({ status: "completed", tool, input: {}, result: {} })
-      expect(readFileSync(join(root, "dashboard-ran"), "utf8")).toBe("ok")
-      rmSync(join(root, "dashboard-ran"))
+      expect(readFileSync(join(project, "dashboard-ran"), "utf8")).toBe("ok")
+      rmSync(join(project, "dashboard-ran"))
     }
     // Machine registry fallback is kept for machine and sandbox installs.
-    rmSync(join(root, ".gse/registry"))
-    writeFileSync(join(root, ".gse-one"), join(root, "assets"))
+    rmSync(join(project, ".gse/registry"))
+    writeFileSync(join(root, ".gse-one"), join(project, "assets"))
     await after({ status: "completed", tool: "write", input: {}, result: {} })
-    expect(existsSync(join(root, "dashboard-ran"))).toBe(true)
+    expect(existsSync(join(project, "dashboard-ran"))).toBe(true)
     writeFileSync(script, 'raise RuntimeError("fixture failure")\n')
     await after({ status: "completed", tool: "write", input: {}, result: {} })
-    expect(readFileSync(join(root, ".gse/.dashboard-error.yaml"), "utf8")).toContain("fixture failure")
+    expect(readFileSync(join(project, ".gse/.dashboard-error.yaml"), "utf8")).toContain("fixture failure")
   })
 
   if (version === 2) {
@@ -135,9 +165,13 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
       }
     })
     test("ignores failed tool executions", async () => {
-      await after({ status: "error", tool: "shell", input: { command: "git push" }, error: "fixture" })
+      mkdirSync(join(project, "assets/tools"), { recursive: true })
+      writeFileSync(join(project, ".gse/registry"), "assets")
+      writeFileSync(join(project, "assets/tools/dashboard.py"), 'raise RuntimeError("must not run")\n')
+      writeFileSync(join(project, ".gse/status.yaml"), "review_findings_open: 3\n")
+      await after({ status: "error", tool: "shell", input: { command: "git push", workdir: project }, error: "fixture" })
       await after({ status: "error", tool: "write", error: "fixture" })
-      expect(existsSync(join(root, ".gse/.dashboard-error.yaml"))).toBe(false)
+      expect(existsSync(join(project, ".gse/.dashboard-error.yaml"))).toBe(false)
     })
   }
 })

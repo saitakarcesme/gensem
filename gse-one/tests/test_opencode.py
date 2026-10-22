@@ -35,8 +35,24 @@ class TestOpenCodeInstaller(unittest.TestCase):
 
     def test_unknown_future_major_is_not_silently_supported(self):
         with patch.object(installer.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "3.0.0")):
-            with self.assertRaisesRegex(RuntimeError, "Unsupported OpenCode"):
-                installer._opencode_guardrails_source(SOURCE)
+            with patch.object(installer, "err") as error:
+                self.assertIsNone(installer._opencode_guardrails_source(SOURCE))
+                error.assert_called_once()
+
+    def test_missing_adapter_fails_before_copying_files(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(installer, "_opencode_guardrails_source", return_value=Path(tmp) / "missing.ts"), patch.object(installer, "err") as error:
+            target = Path(tmp) / "target"
+            self.assertIsNone(installer._opencode_copy_tree(SOURCE, target))
+            self.assertFalse(target.exists())
+            error.assert_called_once()
+
+    def test_selection_failure_is_reported_by_both_install_modes(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(installer, "_check_duplicate_install", return_value=True), patch.object(installer, "_opencode_guardrails_source", return_value=None), patch.object(installer.tracker, "add") as track:
+            self.assertFalse(installer.install_opencode_plugin({"opencode_dir": Path(tmp) / "global"}))
+            self.assertFalse(installer.install_opencode_no_plugin(Path(tmp) / "project"))
+            self.assertEqual(track.call_count, 2)
+            self.assertTrue(all(call.args[-2] == "FAIL" for call in track.call_args_list))
+            self.assertFalse(list(Path(tmp).rglob("gse-guardrails.ts")))
 
     def test_upgrade_downgrade_and_uninstall_preserve_user_plugins(self):
         with tempfile.TemporaryDirectory() as tmp:

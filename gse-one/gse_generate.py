@@ -442,7 +442,7 @@ def _guardrail_commands() -> dict:
         "python3 -c \""
         "import sys,json,os,re,subprocess; "
         + _read_cmd +
-        "c=bool(re.search(r'(?:^|[;&|]\\s*)git\\s+(-C\\s+\\S+\\s+)?commit\\b',t)); "
+        "c=bool(re.search(r'(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b',t)); "
         "p=os.path.join('.gse','config.yaml'); "
         "cfg=open(p).read() if c and os.path.isfile(p) else ''; "
         "off=bool(re.search(r'^\\s*protect_main:\\s*false',cfg,re.M)) "
@@ -462,7 +462,7 @@ def _guardrail_commands() -> dict:
         "python3 -c \""
         "import sys,json,os,re; "
         + _read_cmd +
-        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b|\\s\\+\\S)',t)); "
+        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[A-Za-z]*f[A-Za-z]*\\b|--force\\b|\\s\\+\\S)',t)); "
         "p=os.path.join('.gse','config.yaml'); "
         "cfg=open(p).read() if bad and os.path.isfile(p) else ''; "
         "off=bool(re.search(r'^\\s*block_force_push:\\s*false',cfg,re.M)); "
@@ -738,11 +738,11 @@ export const GseGuardrails: Plugin = async ({{ directory }}: {{ directory: strin
       const cmd = String(output?.args?.command ?? "")
       const cwd = resolve(directory, output?.args?.workdir ?? ".")
 
-      // Project-local config toggles (.gse/config.yaml -> hooks section)
+      // Project policy stays at the plugin root; workdir only selects Git cwd.
       let cfg = ""
-      try {{ cfg = await Bun.file(resolve(cwd, ".gse/config.yaml")).text() }} catch {{ /* no config */ }}
+      try {{ cfg = await Bun.file(resolve(directory, ".gse/config.yaml")).text() }} catch {{ /* no config */ }}
 
-      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-f\\b|--force\\b|\\s\\+\\S)/.test(cmd)) {{
+      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[A-Za-z]*f[A-Za-z]*\\b|--force\\b|\\s\\+\\S)/.test(cmd)) {{
         if (!/^\\s*block_force_push:\\s*false/m.test(cfg)) {{
           throw new Error(
             "EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). This can cause permanent data loss. Aborting."
@@ -750,10 +750,10 @@ export const GseGuardrails: Plugin = async ({{ directory }}: {{ directory: strin
         }}
       }}
 
-      if (/(?:^|[;&|]\\s*)git\\s+(-C\\s+\\S+\\s+)?commit\\b/.test(cmd)) {{
+      if (/(?:^|[;&|\\n]\\s*)git\\s+(?:(?:-C|-c)\\s+\\S+\\s+|--no-pager\\s+)*commit\\b/.test(cmd)) {{
         const off = /^\\s*protect_main:\\s*false/m.test(cfg) || /^\\s*strategy:\\s*none/m.test(cfg)
         if (!off) {{
-          const branch = (await $`git branch --show-current`.cwd(cwd).text()).trim()
+          const branch = (await $`git branch --show-current`.cwd(cwd).nothrow().quiet().text()).trim()
           if (branch === "main") {{
             // Repository-initialization exception: no HEAD yet (foundational commit)
             const head = await $`git rev-parse --verify HEAD`.cwd(cwd).nothrow().quiet()
@@ -774,13 +774,12 @@ export const GseGuardrails: Plugin = async ({{ directory }}: {{ directory: strin
       // the warning — verified empirically on opencode 1.17.18 (2026-07-11).
       if (input?.tool === "bash") {{
         const cmd = String(input?.args?.command ?? "")
-        const cwd = resolve(directory, input?.args?.workdir ?? ".")
         if (/\\bgit\\s[^|;&]*\\bpush\\b/.test(cmd)) {{
           try {{
             let cfgAfter = ""
-            try {{ cfgAfter = await Bun.file(resolve(cwd, ".gse/config.yaml")).text() }} catch {{ /* no config */ }}
+            try {{ cfgAfter = await Bun.file(resolve(directory, ".gse/config.yaml")).text() }} catch {{ /* no config */ }}
             if (/^\\s*review_findings_on_push:\\s*false/m.test(cfgAfter)) return
-            const status = await Bun.file(resolve(cwd, ".gse/status.yaml")).text()
+            const status = await Bun.file(resolve(directory, ".gse/status.yaml")).text()
             const m = status.match(/review_findings_open:\\s*(\\d+)/)
             const open = m ? parseInt(m[1], 10) : 0
             if (open > 0 && output) {{

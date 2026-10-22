@@ -1175,6 +1175,9 @@ def install_opencode_plugin(env):
     ensure_dir(target)
 
     counts = _opencode_copy_tree(OPENCODE_PLUGIN_DIR, target)
+    if counts is None:
+        tracker.add("opencode", "machine", "global", str(target), "FAIL", "guardrail selection failed")
+        return False
     # Common runtime assets (tools/, templates/, references/, VERSION) —
     # needed because opencode skills shell out to $(cat ~/.gse-one)/tools/...
     # and templates/references are consulted by activities at runtime.
@@ -1240,6 +1243,9 @@ def install_opencode_no_plugin(project_dir):
     ensure_dir(target)
 
     counts = _opencode_copy_tree(OPENCODE_PLUGIN_DIR, target)
+    if counts is None:
+        tracker.add("opencode", "project", "project", str(target), "FAIL", "guardrail selection failed")
+        return False
     # Common runtime assets (tools/, templates/, references/, VERSION) —
     # needed because opencode skills shell out to $(cat ~/.gse-one)/tools/...
     # and templates/references are consulted by activities at runtime.
@@ -1309,18 +1315,22 @@ def _opencode_guardrails_source(src):
         info("Selecting OpenCode 2 guardrails")
         return src / "compat" / "gse-guardrails-v2.ts"
     if major > 2:
-        raise RuntimeError(f"Unsupported OpenCode major version: {major}")
+        err(f"Unsupported OpenCode major version: {major}; no files installed")
+        return None
     return legacy
 
 
 def _opencode_copy_tree(src, target):
     """Copy opencode artefacts (skills/, commands/, agents/, plugins/) into target.
 
-    Overwrites existing GSE-named items. Returns counts dict.
+    Overwrites existing GSE-named items. Returns counts, or None on adapter selection failure.
     """
     guardrails = _opencode_guardrails_source(src)
+    if guardrails is None:
+        return None
     if not guardrails.is_file():
-        raise FileNotFoundError(f"Missing OpenCode guardrails: {guardrails}")
+        err(f"Missing OpenCode guardrails: {guardrails}; regenerate before installing")
+        return None
     counts = {"skills": 0, "commands": 0, "agents": 0, "plugins": 0}
     # Skills (copy each subdir individually so we don't wipe user-added skills)
     src_skills = src / "skills"

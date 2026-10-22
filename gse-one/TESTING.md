@@ -20,8 +20,11 @@ tests are a welcome future contribution.
 
 ## Unit tests
 
-Located in `gse-one/tests/` — five files:
+Located in `gse-one/tests/`:
 
+- `test_opencode.py` — installer selection, failure reporting, and the Bun adapter test runner
+- `opencode.test.ts` — generated V1/V2 guardrails, working-directory policy, and structured tool results
+- `test_dashboard.py` — dashboard generation and stale-state handling
 - `test_deploy.py` — deploy tool deterministic core (detailed below)
 - `test_audit.py` — audit engine regression guards (false-positive classes, catalog chain, checkpoint round-trip coherence)
 - `test_hooks.py` — generated guardrail hooks executed against synthetic stdin JSON
@@ -205,7 +208,8 @@ Run them when touching pause/resume, state schemas, or the deliver tag strategy.
 
 ## OpenCode guardrail regression tests
 
-`python3 gse_generate.py --verify` includes installer selection tests and runs
+`python3 gse_generate.py --verify` includes installer selection tests in
+`tests/test_opencode.py` and runs
 `bun test tests/opencode.test.ts` when Bun is installed. Without Bun, the runtime
 test is explicitly skipped; install Bun to validate changes to OpenCode hooks.
 PR and release workflows install Bun 1.4.3, so runtime coverage is required there.

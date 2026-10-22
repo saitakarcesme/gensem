@@ -23,4 +23,9 @@ jobs:
         working-directory: gse-one
         run: python3 gse_generate.py --verify
       - name: Check generated artifacts are committed
-        run: git diff --exit-code -- gse-one/plugin
+        run: |
+          changes=$(git status --porcelain --untracked-files=all -- gse-one/plugin)
+          if [ -n "$changes" ]; then
+            printf '%s\n' "$changes"
+            exit 1
+          fi
