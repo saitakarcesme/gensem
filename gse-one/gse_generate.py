@@ -462,7 +462,7 @@ def _guardrail_commands() -> dict:
         "python3 -c \""
         "import sys,json,os,re; "
         + _read_cmd +
-        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[A-Za-z]*f[A-Za-z]*\\b|--force\\b|\\s\\+\\S)',t)); "
+        "bad=bool(re.search(r'\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[vqndu46]*f|--force\\b|\\s\\+\\S)',t)); "
         "p=os.path.join('.gse','config.yaml'); "
         "cfg=open(p).read() if bad and os.path.isfile(p) else ''; "
         "off=bool(re.search(r'^\\s*block_force_push:\\s*false',cfg,re.M)); "
@@ -742,7 +742,7 @@ export const GseGuardrails: Plugin = async ({{ directory }}: {{ directory: strin
       let cfg = ""
       try {{ cfg = await Bun.file(resolve(directory, ".gse/config.yaml")).text() }} catch {{ /* no config */ }}
 
-      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[A-Za-z]*f[A-Za-z]*\\b|--force\\b|\\s\\+\\S)/.test(cmd)) {{
+      if (/\\bgit\\s[^|;&]*\\bpush\\b[^|;&]*(\\s-[vqndu46]*f|--force\\b|\\s\\+\\S)/.test(cmd)) {{
         if (!/^\\s*block_force_push:\\s*false/m.test(cfg)) {{
           throw new Error(
             "EMERGENCY GUARDRAIL: Force push detected (-f / --force / --force-with-lease). This can cause permanent data loss. Aborting."

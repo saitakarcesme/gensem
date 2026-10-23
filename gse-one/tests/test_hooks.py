@@ -79,6 +79,8 @@ class TestForcePushHook(unittest.TestCase):
             "git push -fu",
             "git push -uf",
             "git push -vf",
+            "git push -4f",
+            "git push -f4",
             "git push origin main --force",
             "git push --force-with-lease",
             "cd sub && git push -f origin main",
@@ -100,7 +102,7 @@ class TestForcePushHook(unittest.TestCase):
             self.assertIn("EMERGENCY GUARDRAIL", res.stderr)
 
     def test_allows_benign(self):
-        for form in ("git push", "git push origin main", "ls -f", "echo --force",
+        for form in ("git push -ofoo", "git push -vofoo", "git push", "git push origin main", "ls -f", "echo --force",
                      "git push origin main:main"):
             res = _run_hook(self.cmd, form, self.dir)
             self.assertEqual(res.returncode, 0, f"{form!r}: {res.stderr}")

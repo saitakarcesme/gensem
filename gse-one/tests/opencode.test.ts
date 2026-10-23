@@ -52,11 +52,13 @@ for (const version of [1, 2]) describe(`OpenCode ${version}`, () => {
   })
 
   test("blocks force push forms and honors the project toggle", async () => {
-    for (const command of ["git push -fu", "git push -uf", "git push -vf", "git push -f", "git push --force", "git push --force-with-lease", "git push origin +HEAD:main"]) {
+    for (const command of ["git push -4f", "git push -f4", "git push -fu", "git push -uf", "git push -vf", "git push -f", "git push --force", "git push --force-with-lease", "git push origin +HEAD:main"]) {
       await expect(run(command)).rejects.toThrow("EMERGENCY GUARDRAIL")
     }
     await run("git status --short")
     await run("git push origin feature")
+    await run("git push -ofoo")
+    await run("git push -vofoo")
     config("hooks:\n  block_force_push: false\n")
     await run("git push --force")
   })
